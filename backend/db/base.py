@@ -1,8 +1,12 @@
 import os
+
+from dotenv import load_dotenv
 from sqlmodel import SQLModel, create_engine, Session
 
+load_dotenv()
+
 # Sử dụng biến môi trường hoặc mặc định
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./code_agent.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Tạo engine
 engine = create_engine(

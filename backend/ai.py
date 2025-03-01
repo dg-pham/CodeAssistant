@@ -4,6 +4,7 @@ from typing import Optional, Tuple, List, Dict
 
 import openai
 from fastapi import HTTPException, BackgroundTasks, Depends
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from backend.LLM_Bundle.Azure_LLM import AzureOpenAIConfig
@@ -24,6 +25,12 @@ from backend.prompts import SYSTEM_PROMPTS
 
 config = AzureOpenAIConfig()
 pattern_extractor = PatternExtractor()
+
+client = openai.AzureOpenAI(
+    api_key=config.api_key,
+    api_version=config.api_version,
+    azure_endpoint=config.endpoint
+)
 
 
 async def get_or_create_user(user: User = None, session: Session = Depends(get_session)):
@@ -103,16 +110,15 @@ async def generate_suggestions(user_id: str, conversation_id: str, action: str, 
             ])
 
         # Sử dụng AI để tạo đề xuất
-        response = openai.ChatCompletion.create(
-            deployment_id=config.deployment_name,
+        response = client.chat.completions.create(
+            model=config.deployment_name,
             messages=[
                 {"role": "system",
                  "content": f"You are a helpful coding assistant. Based on the conversation history and user's past activities, suggest 3 relevant {action}-related next steps or questions the user might want to explore."},
                 {"role": "user",
                  "content": f"Conversation history:\n{history_text}\n\n{snippets_text}\n\nGenerate 3 relevant, specific suggestions related to {action} that might help the user."}
             ],
-            temperature=0.7,
-            max_tokens=200
+            temperature=0
         )
 
         suggestion_text = response.choices[0].message.content
@@ -138,61 +144,98 @@ async def process_code_request(action: str, request_data: CodeRequest,
                                background_tasks: BackgroundTasks,
                                session: Session = Depends(get_session)) -> CodeResponse:
     """Xử lý yêu cầu code dựa trên hành động được chỉ định"""
-    user_service = UserService(session)
-    conversation_service = ConversationService(session)
-    message_service = MessageService(session)
-    snippet_service = CodeSnippetService(session)
+    try:
+        user_service = UserService(session)
+        conversation_service = ConversationService(session)
+        message_service = MessageService(session)
+        snippet_service = CodeSnippetService(session)
 
-    # Đảm bảo user_id tồn tại
-    user_id = request_data.user_id or str(uuid.uuid4())
-    if not user_service.get_user(user_id):
-        user = User(id=user_id, name="Anonymous User")
-        user_service.create_user(user)
+        # Đảm bảo user_id tồn tại
+        user_id = request_data.user_id or str(uuid.uuid4())
+        if user_id:
+            user = user_service.get_user(user_id)
+            if not user:
+                # Nếu user_id được cung cấp nhưng không tồn tại
+                if request_data.user_id:  # Chỉ báo lỗi nếu user_id được cung cấp
+                    raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
+                # Tạo user mới nếu không có user_id được cung cấp
+                user = User(id=user_id, name="Anonymous User")
+                user_service.create_user(user)
 
-    # Kiểm tra conversation_id và tạo nếu cần
-    conversation_id = request_data.conversation_id
-    if not conversation_id:
-        conversation = Conversation(
-            user_id=user_id,
-            title=f"New {action.title()} Conversation"
-        )
-        conversation_id = conversation_service.create_conversation(conversation)
-
-    # Lấy system prompt tương ứng
-    system_prompt = SYSTEM_PROMPTS.get(action, SYSTEM_PROMPTS["general"])
-
-    # Xây dựng user prompt dựa trên hành động và dữ liệu yêu cầu
-    user_prompt = ""
-    context = None
-
-    if action == "generate":
-        if not request_data.description:
+        # Kiểm tra các điều kiện cần thiết dựa trên action
+        if action == "generate" and not request_data.description:
             raise HTTPException(status_code=400, detail="Description is required for code generation")
-
-        user_prompt = f"""Generate {request_data.language_to} code for the following description:
-
-        Description: {request_data.description}
-
-        {'Include detailed comments' if request_data.comments else 'Minimize comments'}
-        """
-        context = f"code_generation_{request_data.language_to}"
-
-    elif action == "optimize":
-        if not request_data.code:
+        elif action == "optimize" and not request_data.code:
             raise HTTPException(status_code=400, detail="Code is required for optimization")
+        elif action == "translate" and (not request_data.code or not request_data.language_from or not request_data.language_to):
+            raise HTTPException(status_code=400, detail="Code, source language, and target language are required for translation")
+        elif action == "explain" and not request_data.code:
+            raise HTTPException(status_code=400, detail="Code is required for explanation")
 
-        user_prompt = f"""Optimize the following code with optimization level: {request_data.optimization_level}
+        conversation_id = request_data.conversation_id
+        if conversation_id:
+            # Kiểm tra xem conversation có tồn tại không
+            existing_conversation = conversation_service.get_conversation(conversation_id)
+            if not existing_conversation:
+                # Hoặc tạo mới với ID được cung cấp hoặc báo lỗi
+                raise HTTPException(status_code=404, detail=f"Conversation with ID {conversation_id} not found")
+        else:
+            # Tạo conversation mới nếu không có ID
+            conversation = Conversation(
+                user_id=user_id,
+                title=f"New {action.title()} Conversation"
+            )
+            conversation_id = conversation_service.create_conversation(conversation)
 
-        ```
-        {request_data.code}
-        ```
+        # Lấy system prompt tương ứng
+        system_prompt = SYSTEM_PROMPTS.get(action, SYSTEM_PROMPTS["general"])
 
-        Explain the key optimizations you made.
-        """
-        context = f"code_optimization_{request_data.language_from or 'unknown'}"
+        # Xây dựng user prompt dựa trên hành động và dữ liệu yêu cầu
+        user_prompt = ""
+        context = None
 
-        # Học từ mã của người dùng
-        if request_data.language_from:
+        if action == "generate":
+            user_prompt = f"""Generate {request_data.language_to} code for the following description:
+
+            Description: {request_data.description}
+
+            {'Include detailed comments' if request_data.comments else 'Minimize comments'}
+            """
+            context = f"code_generation_{request_data.language_to}"
+
+        elif action == "optimize":
+            user_prompt = f"""Optimize the following code with optimization level: {request_data.optimization_level}
+
+            ```
+            {request_data.code}
+            ```
+
+            Explain the key optimizations you made.
+            """
+            context = f"code_optimization_{request_data.language_from or 'unknown'}"
+
+            # Học từ mã của người dùng
+            if request_data.language_from:
+                background_tasks.add_task(
+                    pattern_extractor.extract_code_preferences,
+                    request_data.code,
+                    request_data.language_from,
+                    user_id,
+                    background_tasks
+                )
+
+        elif action == "translate":
+            user_prompt = f"""Translate the following code from {request_data.language_from} to {request_data.language_to}:
+
+            ```{request_data.language_from}
+            {request_data.code}
+            ```
+
+            Use idiomatic {request_data.language_to} patterns and conventions.
+            """
+            context = f"code_translation_{request_data.language_from}_to_{request_data.language_to}"
+
+            # Học từ mã của người dùng
             background_tasks.add_task(
                 pattern_extractor.extract_code_preferences,
                 request_data.code,
@@ -201,119 +244,133 @@ async def process_code_request(action: str, request_data: CodeRequest,
                 background_tasks
             )
 
-    elif action == "translate":
-        if not request_data.code or not request_data.language_from or not request_data.language_to:
-            raise HTTPException(status_code=400,
-                                detail="Code, source language, and target language are required for translation")
+        elif action == "explain":
+            language_info = f"Language: {request_data.language_from}" if request_data.language_from else ""
 
-        user_prompt = f"""Translate the following code from {request_data.language_from} to {request_data.language_to}:
+            user_prompt = f"""Explain the following code in detail:
 
-        ```{request_data.language_from}
-        {request_data.code}
-        ```
+            {language_info}
 
-        Use idiomatic {request_data.language_to} patterns and conventions.
-        """
-        context = f"code_translation_{request_data.language_from}_to_{request_data.language_to}"
+            ```
+            {request_data.code}
+            ```
 
-        # Học từ mã của người dùng
-        background_tasks.add_task(
-            pattern_extractor.extract_code_preferences,
-            request_data.code,
-            request_data.language_from,
-            user_id,
-            background_tasks
-        )
+            Provide a comprehensive explanation including the purpose, logic, and any important patterns or algorithms used.
+            """
+            context = f"code_explanation_{request_data.language_from or 'unknown'}"
 
-    elif action == "explain":
-        if not request_data.code:
-            raise HTTPException(status_code=400, detail="Code is required for explanation")
+        # Làm giàu prompt với ngữ cảnh
+        try:
+            enriched_system_prompt, messages_for_completion = await enrich_prompt_with_context(
+                system_prompt,
+                user_prompt,
+                user_id,
+                session,
+                conversation_id,
+                context
+            )
+        except Exception as e:
+            logger.error(f"Error enriching prompt: {str(e)}")
+            # Fallback to basic prompts if context enrichment fails
+            messages_for_completion = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
 
-        language_info = f"Language: {request_data.language_from}" if request_data.language_from else ""
-
-        user_prompt = f"""Explain the following code in detail:
-
-        {language_info}
-
-        ```
-        {request_data.code}
-        ```
-
-        Provide a comprehensive explanation including the purpose, logic, and any important patterns or algorithms used.
-        """
-        context = f"code_explanation_{request_data.language_from or 'unknown'}"
-
-    # Làm giàu prompt với ngữ cảnh
-    enriched_system_prompt, messages_for_completion = await enrich_prompt_with_context(
-        system_prompt,
-        user_prompt,
-        user_id,
-        session,
-        conversation_id,
-        context
-    )
-
-    try:
         # Lưu tin nhắn của người dùng vào lịch sử
-        user_message = Message(
-            role="user",
-            content=user_prompt,
-            conversation_id=conversation_id
-        )
-        message_service.add_message(user_message)
+        try:
+            user_message = Message(
+                role="user",
+                content=user_prompt,
+                conversation_id=conversation_id
+            )
+            message_service.add_message(user_message)
+        except Exception as e:
+            logger.error(f"Error saving user message: {str(e)}")
+            # Continue even if saving fails - this is non-critical
 
         # Gọi Azure OpenAI API
-        response = openai.ChatCompletion.create(
-            deployment_id=config.deployment_name,
-            messages=messages_for_completion,
-            temperature=0.7 if action == "generate" else 0.3,
-            max_tokens=4000,
-            top_p=0.95,
-            frequency_penalty=0,
-            presence_penalty=0
-        )
+        try:
+            response = client.chat.completions.create(
+                model=config.deployment_name,
+                messages=messages_for_completion,
+                temperature=0
+            )
 
-        result = response.choices[0].message.content
-        token_usage = response.usage
+            result = response.choices[0].message.content
+            token_usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            }
+        except openai.APIError as e:
+            logger.error(f"OpenAI API error: {str(e)}")
+            raise HTTPException(status_code=503, detail=f"AI service error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error calling Azure OpenAI API: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
         # Lưu trữ câu trả lời vào lịch sử
-        assistant_message = Message(
-            role="assistant",
-            content=result,
-            conversation_id=conversation_id
-        )
-        message_id = message_service.add_message(assistant_message)
+        try:
+            assistant_message = Message(
+                role="assistant",
+                content=result,
+                conversation_id=conversation_id
+            )
+            message_id = message_service.add_message(assistant_message)
+        except Exception as e:
+            logger.error(f"Error saving assistant message: {str(e)}")
+            # Create a temporary ID if saving fails
+            message_id = str(uuid.uuid4())
 
         # Lưu mã nguồn nếu được yêu cầu và là kết quả của generate hoặc translate
         if request_data.save_snippet and (action == "generate" or action == "translate"):
-            # Trích xuất mã từ kết quả
-            code_blocks = re.findall(r"```(?:\w+)?\n([\s\S]+?)\n```", result)
-            if code_blocks:
-                code_to_save = code_blocks[0]
-                language = request_data.language_to or "unknown"
+            try:
+                # Trích xuất mã từ kết quả
+                code_blocks = re.findall(r"```(?:\w+)?\n([\s\S]+?)\n```", result)
+                if code_blocks:
+                    code_to_save = code_blocks[0]
+                    language = request_data.language_to or "unknown"
 
-                snippet = CodeSnippet(
-                    user_id=user_id,
-                    language=language,
-                    code=code_to_save,
-                    description=request_data.description or f"Result of {action} operation",
-                    tags=request_data.tags or []
-                )
+                    snippet = CodeSnippet(
+                        user_id=user_id,
+                        language=language,
+                        code=code_to_save,
+                        description=request_data.description or f"Result of {action} operation",
+                        tags=request_data.tags or []
+                    )
 
-                snippet_service.save_snippet(snippet)
+                    snippet_service.save_snippet(snippet)
+            except Exception as e:
+                logger.error(f"Error saving code snippet: {str(e)}")
+                # Continue even if snippet saving fails
 
         # Tạo đề xuất cho người dùng
-        suggestions = await generate_suggestions(user_id, conversation_id, action, session)
+        try:
+            suggestions = await generate_suggestions(user_id, conversation_id, action, session)
+        except Exception as e:
+            logger.error(f"Error generating suggestions: {str(e)}")
+            suggestions = []
 
         return CodeResponse(
             status="success",
             result=result,
             conversation_id=conversation_id,
             message_id=message_id,
-            additional_info={"token_usage": token_usage.to_dict()},
+            additional_info={"token_usage": token_usage},
             suggestions=suggestions
         )
 
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve their status codes and details
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error in process_code_request: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in process_code_request: {str(e)}")
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database error occurred")
     except Exception as e:
-        logger.error(f"Error calling Azure OpenAI API: {str(e)}")
+        logger.error(f"Unexpected error in process_code_request: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")

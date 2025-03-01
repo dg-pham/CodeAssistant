@@ -3,12 +3,14 @@ from typing import Optional, List
 from sqlmodel import Session, select
 
 from backend.db.models.user import User
+from backend.decorators import db_transaction
 
 
 class UserService:
     def __init__(self, session: Session):
         self.session = session
 
+    @db_transaction
     def create_user(self, user: User) -> str:
         """Tạo người dùng mới hoặc lấy người dùng hiện có"""
         user_id = user.id or str(uuid.uuid4())
@@ -29,12 +31,14 @@ class UserService:
 
         return user.id
 
+    @db_transaction
     def get_user(self, user_id: str) -> Optional[User]:
         """Lấy thông tin người dùng theo ID"""
         return self.session.exec(
             select(User).where(User.id == user_id)
         ).first()
 
+    @db_transaction
     def get_users(self) -> List[User]:
         """Lấy danh sách tất cả người dùng"""
         return self.session.exec(select(User)).all()

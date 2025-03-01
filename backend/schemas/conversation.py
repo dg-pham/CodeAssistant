@@ -26,3 +26,6 @@ class ConversationWithMessagesResponse(ConversationResponse):
 
     class Config:
         from_attributes = True
+
+class ConversationUpdate(BaseModel):
+    title: Optional[str] = None

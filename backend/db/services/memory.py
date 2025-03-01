@@ -4,15 +4,22 @@ from sqlmodel import Session, select
 from datetime import datetime
 
 from backend.db.models.memory import AgentMemory
+from backend.db.services import UserService
+from backend.decorators import db_transaction
 
 
 class AgentMemoryService:
     def __init__(self, session: Session):
         self.session = session
+        self.user_service = UserService(session)
 
+    @db_transaction
     def store_memory(self, memory: AgentMemory) -> str:
         """Lưu trữ một mục nhớ mới hoặc cập nhật mục nhớ hiện có"""
-        # Kiểm tra xem mục nhớ đã tồn tại chưa
+        user = self.user_service.get_user(memory.user_id)
+        if not user:
+            raise ValueError(f"User with ID {memory.user_id} does not exist")
+
         existing_memory = self.session.exec(
             select(AgentMemory).where(
                 AgentMemory.user_id == memory.user_id,
@@ -48,6 +55,7 @@ class AgentMemoryService:
 
             return memory.id
 
+    @db_transaction
     def retrieve_memories(self, user_id: str, context: Optional[str] = None, limit: int = 5) -> List[AgentMemory]:
         """Lấy các mục nhớ liên quan cho người dùng"""
         if context:
@@ -68,12 +76,14 @@ class AgentMemoryService:
 
         return self.session.exec(query).all()
 
+    @db_transaction
     def get_memory(self, memory_id: str) -> Optional[AgentMemory]:
         """Lấy một mục nhớ theo ID"""
         return self.session.exec(
             select(AgentMemory).where(AgentMemory.id == memory_id)
         ).first()
 
+    @db_transaction
     def get_memory_by_key(self, user_id: str, key: str) -> Optional[AgentMemory]:
         """Lấy một mục nhớ theo key"""
         return self.session.exec(
@@ -83,6 +93,7 @@ class AgentMemoryService:
             )
         ).first()
 
+    @db_transaction
     def forget_memory(self, user_id: str, key: str) -> bool:
         """Xóa một mục nhớ"""
         memory = self.get_memory_by_key(user_id, key)
@@ -94,6 +105,7 @@ class AgentMemoryService:
 
         return True
 
+    @db_transaction
     def update_memory_priority(self, user_id: str, key: str, new_priority: float) -> bool:
         """Cập nhật ưu tiên của một mục nhớ"""
         memory = self.get_memory_by_key(user_id, key)

@@ -5,18 +5,24 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from backend.db.models.code_snippet import CodeSnippet
+from backend.decorators import db_transaction
 
 
 class CodeSnippetService:
     def __init__(self, session: Session):
         self.session = session
 
+    @db_transaction
     def save_snippet(self, snippet: CodeSnippet) -> str:
         """Lưu đoạn mã"""
+
+        user = self.user_service.get_user(snippet.user_id)
+        if not user:
+            raise ValueError(f"User with ID {snippet.user_id} does not exist")
+
         snippet_id = snippet.id or str(uuid.uuid4())
         snippet.id = snippet_id
 
-        # Thêm timestamp nếu chưa có
         if not hasattr(snippet, "created_at") or snippet.created_at is None:
             snippet.created_at = datetime.utcnow()
         snippet.updated_at = datetime.utcnow()
@@ -27,12 +33,14 @@ class CodeSnippetService:
 
         return snippet.id
 
+    @db_transaction
     def get_snippet(self, snippet_id: str) -> Optional[CodeSnippet]:
         """Lấy đoạn mã theo ID"""
         return self.session.exec(
             select(CodeSnippet).where(CodeSnippet.id == snippet_id)
         ).first()
 
+    @db_transaction
     def get_user_snippets(self, user_id: str, language: Optional[str] = None) -> List[CodeSnippet]:
         """Lấy tất cả đoạn mã của một người dùng"""
         if language:
@@ -48,6 +56,7 @@ class CodeSnippetService:
 
         return self.session.exec(query).all()
 
+    @db_transaction
     def update_snippet(self, snippet_id: str, **kwargs) -> Optional[CodeSnippet]:
         """Cập nhật thông tin của đoạn mã"""
         snippet = self.get_snippet(snippet_id)
@@ -66,6 +75,7 @@ class CodeSnippetService:
 
         return snippet
 
+    @db_transaction
     def delete_snippet(self, snippet_id: str) -> bool:
         """Xóa một đoạn mã"""
         snippet = self.get_snippet(snippet_id)
@@ -77,6 +87,7 @@ class CodeSnippetService:
 
         return True
 
+    @db_transaction
     def search_snippets(self, user_id: str, query: str) -> List[CodeSnippet]:
         """Tìm kiếm đoạn mã theo nội dung hoặc mô tả"""
         search_term = f"%{query}%"

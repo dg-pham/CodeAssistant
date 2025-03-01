@@ -61,7 +61,7 @@ async def update_snippet(snippet_id: str, snippet_update: CodeSnippetCreate, ses
     snippet_service = CodeSnippetService(session)
 
     # Chỉ lấy các trường cần cập nhật
-    update_data = snippet_update.dict(exclude_unset=True)
+    update_data = snippet_update.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
 

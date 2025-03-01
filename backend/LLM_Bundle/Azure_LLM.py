@@ -14,9 +14,3 @@ class AzureOpenAIConfig:
 
         if not all([self.api_key, self.endpoint, self.deployment_name]):
             raise ValueError("Missing required Azure OpenAI configuration values")
-
-        # Cấu hình client
-        openai.api_key = self.api_key
-        openai.api_base = self.endpoint
-        openai.api_version = self.api_version
-        openai.api_type = "azure"
