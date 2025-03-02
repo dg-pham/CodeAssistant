@@ -33,8 +33,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
   // Load conversation if ID is provided
   useEffect(() => {
     if (conversationId && currentUser) {
+      // Tải cuộc hội thoại kèm tin nhắn
       dispatch(getConversationWithMessages(conversationId))
         .unwrap()
+        .then(() => {
+          // Thêm log kiểm tra
+          console.log("Loaded messages:", messages);
+        })
         .catch((err) => {
           setError('Failed to load conversation: ' + err);
         });
@@ -247,7 +252,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
             </Box>
           ) : messages.length > 0 ? (
             <>
-              {messages.map((message) => (
+              {[...messages].reverse().map((message) => (
                 <MessageItem key={message.id} message={message} />
               ))}
               <div ref={messagesEndRef} />

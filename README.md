@@ -121,6 +121,7 @@ Frontend sẽ chạy tại `http://localhost:3000`.
 │   │   ├── models/             # Database models
 │   │   └── services/           # Database services
 │   ├── migrations/             # Alembic
+│   ├── utils/                  # Helpers
 │   ├── schemas/                # API schemas
 │   ├── API/                    # API endpoints
 │   │   └── endpoints/          # Route handlers

@@ -197,6 +197,7 @@ const conversationSlice = createSlice({
         title: action.payload.title
       };
       state.messages = action.payload.messages;
+      console.log("Updated state with messages:", action.payload.messages);
     });
     builder.addCase(getConversationWithMessages.rejected, (state, action) => {
       state.isLoading = false;

@@ -38,6 +38,7 @@ import {
   BrightnessMedium as ThemeIcon
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { RootState, useAppDispatch } from '@/store/store';
 import { getOrCreateAnonymousUser } from '@/store/slices/userSlice';
 import { getUserMemories, forgetMemory, updateMemoryPriority } from '@/store/slices/memorySlice';
@@ -46,6 +47,8 @@ import Layout from '@/components/layout/Layout';
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { Memory } from '@/types';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { clearCurrentUser } from '@/store/slices/userSlice';
+import { ExitToApp as LogoutIcon } from '@mui/icons-material';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -74,6 +77,7 @@ const TabPanel = (props: TabPanelProps) => {
 };
 
 const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { currentUser, isLoading: userLoading, error: userError } = useSelector((state: RootState) => state.user);
   const { memories, contextMemories, isLoading: memoriesLoading, error: memoriesError } = useSelector((state: RootState) => state.memory);
