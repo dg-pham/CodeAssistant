@@ -85,6 +85,18 @@ export const getConversationWithMessages = createAsyncThunk(
   }
 );
 
+export const deleteConversation = createAsyncThunk(
+  'conversation/deleteConversation',
+  async (conversationId: string, { rejectWithValue }) => {
+    try {
+      const result = await conversationService.deleteConversation(conversationId);
+      return { success: result.success, id: conversationId };
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete conversation');
+    }
+  }
+);
+
 // Conversation slice
 const conversationSlice = createSlice({
   name: 'conversation',
@@ -200,6 +212,22 @@ const conversationSlice = createSlice({
       console.log("Updated state with messages:", action.payload.messages);
     });
     builder.addCase(getConversationWithMessages.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
+    });
+    builder.addCase(deleteConversation.pending, (state) => {
+      state.isLoading = true;
+      state.error = null;
+    });
+    builder.addCase(deleteConversation.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.conversations = state.conversations.filter(c => c.id !== action.payload.id);
+      if (state.currentConversation?.id === action.payload.id) {
+        state.currentConversation = null;
+        state.messages = [];
+      }
+    });
+    builder.addCase(deleteConversation.rejected, (state, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });

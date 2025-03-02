@@ -63,3 +63,15 @@ class ConversationService:
         self.session.commit()
         self.session.refresh(conversation)
         return conversation
+
+    @db_transaction
+    def delete_conversation(self, conversation_id: str) -> bool:
+        """Xóa một cuộc hội thoại"""
+        conversation = self.get_conversation(conversation_id)
+        if not conversation:
+            return False
+
+        self.session.delete(conversation)
+        self.session.commit()
+
+        return True

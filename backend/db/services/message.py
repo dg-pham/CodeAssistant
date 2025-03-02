@@ -61,3 +61,14 @@ class MessageService:
         return self.session.exec(
             select(Message).where(Message.id == message_id)
         ).first()
+
+    @db_transaction
+    def delete_conversation_messages(self, conversation_id: str) -> bool:
+        """Xóa tất cả tin nhắn trong một cuộc hội thoại"""
+        messages = self.get_conversation_messages(conversation_id)
+
+        for message in messages:
+            self.session.delete(message)
+
+        self.session.commit()
+        return True

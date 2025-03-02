@@ -153,3 +153,37 @@ async def update_conversation(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating conversation: {str(e)}")
+
+
+# Thêm vào file conversation.py trong backend
+@router.delete("/conversations/{conversation_id}", response_model=dict)
+async def delete_conversation(conversation_id: str, session: Session = Depends(get_session)):
+    """Xóa cuộc hội thoại"""
+    try:
+        conversation_service = ConversationService(session)
+
+        # Kiểm tra conversation tồn tại
+        conversation = conversation_service.get_conversation(conversation_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Kiểm tra quyền xóa (nếu cần)
+        # ...
+
+        # Xóa tất cả tin nhắn liên quan
+        from backend.db.services.message import MessageService
+        message_service = MessageService(session)
+        message_service.delete_conversation_messages(conversation_id)
+
+        # Xóa cuộc hội thoại
+        success = conversation_service.delete_conversation(conversation_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete conversation")
+
+        return {"success": True, "message": "Conversation deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting conversation: {str(e)}")

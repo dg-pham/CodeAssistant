@@ -31,14 +31,21 @@ const memoryService = {
 
   // Update memory priority
   updateMemoryPriority: async (userId: string, key: string, priority: number): Promise<{success: boolean, message: string, priority: number}> => {
-    const encodedKey = encodeURIComponent(key);
-
-    const response = await api.patch<{success: boolean, message: string, priority: number}>(
-      `/users/${userId}/memories/${encodedKey}/priority`,
-      { priority }
-    );
-    return response.data;
-  }
+      try {
+        // Thay vì sử dụng key trong URL, gửi nó trong body request
+        const response = await api.patch<{success: boolean, message: string, priority: number}>(
+          `/users/${userId}/memories/priority`,  // Endpoint mới, không sử dụng key trong URL
+          {
+            key: key,  // Đưa key vào body request
+            priority: priority
+          }
+        );
+        return response.data;
+      } catch (error) {
+        console.error('Error updating memory priority:', error);
+        throw error;
+      }
+    },
 };
 
 export default memoryService;

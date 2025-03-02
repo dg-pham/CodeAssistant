@@ -45,6 +45,11 @@ const conversationService = {
   getConversationHistory: async (conversationId: string, limit: number = 50): Promise<MessageResponse[]> => {
     const response = await api.get<MessageResponse[]>(`/conversations/${conversationId}/history?limit=${limit}`);
     return response.data;
+  },
+
+  deleteConversation: async (conversationId: string): Promise<{ success: boolean }> => {
+    const response = await api.delete<{ success: boolean }>(`/conversations/${conversationId}`);
+    return response.data;
   }
 };
 

@@ -347,52 +347,61 @@ const SettingsPage: React.FC = () => {
               <List>
                 {filteredMemories.map((memory) => (
                   <Paper
-                    key={memory.id}
-                    variant="outlined"
-                    sx={{ mb: 2, borderLeft: memory.context ? `4px solid ${getContextColor(memory.context)}` : undefined }}
-                  >
-                    <ListItem>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="subtitle1">
-                              {memory.key.replace(/_/g, ' ')}
+                      key={memory.id}
+                      variant="outlined"
+                      sx={{ mb: 2, borderLeft: memory.context ? `4px solid ${getContextColor(memory.context)}` : undefined }}
+                    >
+                      <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="subtitle1">
+                                {memory.key.replace(/_/g, ' ')}
+                              </Typography>
+                              {memory.context && (
+                                <Chip
+                                  label={memory.context}
+                                  size="small"
+                                  color={getContextColor(memory.context) as any}
+                                />
+                              )}
+                            </Box>
+                          }
+                          secondary={
+                            <>
+                              <Typography variant="body2" sx={{ mt: 1 }}>
+                                {memory.value}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                Last updated: {formatDateTime(memory.updated_at)}
+                              </Typography>
+                            </>
+                          }
+                          sx={{ width: '100%', mb: 2 }}
+                        />
+
+                        {/* Phần priority controls - chuyển xuống dưới và sử dụng chiều rộng đầy đủ */}
+                        <Box sx={{
+                          display: 'flex',
+                          width: '100%',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                            <Typography variant="caption" sx={{ width: 80 }}>
+                              Priority: {(memory.priority * 100).toFixed(0)}%
                             </Typography>
-                            {memory.context && (
-                              <Chip
-                                label={memory.context}
-                                size="small"
-                                color={getContextColor(memory.context) as any}
+                            <Box sx={{ flex: 1, mx: 2, maxWidth: 200 }}>
+                              <Slider
+                                value={memory.priority}
+                                min={0}
+                                max={1}
+                                step={0.1}
+                                onChange={(_e, value) =>
+                                  handlePriorityChange(memory.key, Array.isArray(value) ? value[0] : value)
+                                }
                               />
-                            )}
-                          </Box>
-                        }
-                        secondary={
-                          <>
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                              {memory.value}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                              Last updated: {formatDateTime(memory.updated_at)}
-                            </Typography>
-                          </>
-                        }
-                      />
-                      <ListItemSecondaryAction>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Typography variant="caption" sx={{ mr: 1 }}>
-                            Priority: {(memory.priority * 100).toFixed(0)}%
-                          </Typography>
-                          <Box sx={{ width: 100, mr: 2 }}>
-                            <Slider
-                              value={memory.priority}
-                              min={0}
-                              max={1}
-                              step={0.1}
-                              onChange={(_e, value) =>
-                                handlePriorityChange(memory.key, Array.isArray(value) ? value[0] : value)
-                              }
-                            />
+                            </Box>
                           </Box>
                           <IconButton
                             edge="end"
@@ -402,9 +411,8 @@ const SettingsPage: React.FC = () => {
                             <DeleteIcon />
                           </IconButton>
                         </Box>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  </Paper>
+                      </ListItem>
+                    </Paper>
                 ))}
               </List>
             )}

@@ -16,7 +16,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tooltip
+  Tooltip,
+  Snackbar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,7 +33,8 @@ import {
   getUserConversations,
   createConversation,
   setCurrentConversation,
-  updateConversation
+  updateConversation,
+  deleteConversation
 } from '@/store/slices/conversationSlice';
 import { Conversation } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -57,6 +59,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -112,8 +116,18 @@ const ConversationList: React.FC<ConversationListProps> = ({
   };
 
   const handleConfirmDelete = () => {
-    // Note: We'd need to add functionality to delete conversations
-    // This would require adding this to the backend API and Redux
+    if (conversationToDelete) {
+      dispatch(deleteConversation(conversationToDelete))
+        .unwrap()
+        .then(() => {
+          setSnackbarOpen(true);
+          setSnackbarMessage('Conversation deleted successfully');
+        })
+        .catch((err) => {
+          setSnackbarOpen(true);
+          setSnackbarMessage('Failed to delete conversation: ' + err);
+        });
+    }
     setDeleteConfirmOpen(false);
     setConversationToDelete(null);
   };
@@ -124,7 +138,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
       )
     : conversations;
 
-  // Sort conversations by most recent first (would need updatedAt from backend)
+  // Sort conversations by most recent first
   const sortedConversations = [...filteredConversations].sort((a, b) => {
     // This assumes there's an updated_at field, we'd need to add that to the types
     // For now, just use ID as a simple proxy (higher ID = more recent)
@@ -190,61 +204,41 @@ const ConversationList: React.FC<ConversationListProps> = ({
               <ListItem
                 key={conversation.id}
                 disablePadding
-                secondaryAction={
-                  editMode === conversation.id ? (
-                    <Box sx={{ display: 'flex' }}>
-                      <Tooltip title="Save">
-                        <IconButton
-                          edge="end"
-                          onClick={(e) => handleEditSave(conversation.id, e)}
-                        >
-                          <CheckCircleIcon color="success" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Cancel">
-                        <IconButton
-                          edge="end"
-                          onClick={handleEditCancel}
-                        >
-                          <CloseIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex' }}>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          edge="end"
-                          onClick={(e) => handleEditClick(conversation, e)}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          edge="end"
-                          onClick={(e) => handleDeleteClick(conversation.id, e)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  )
-                }
               >
                 <ListItemButton
                   selected={selectedId === conversation.id}
                   onClick={() => handleSelectConversation(conversation)}
+                  sx={{ pr: 10 }} // Thêm khoảng trống cho các nút hành động
                 >
                   {editMode === conversation.id ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      autoFocus
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <TextField
+                        size="small"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        autoFocus
+                        sx={{ flexGrow: 1, mr: 2 }}
+                      />
+                      <Box sx={{ display: 'flex', flexShrink: 0 }}>
+                        <Tooltip title="Save">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleEditSave(conversation.id, e)}
+                          >
+                            <CheckCircleIcon color="success" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Cancel">
+                          <IconButton
+                            size="small"
+                            onClick={handleEditCancel}
+                          >
+                            <CloseIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
                   ) : (
                     <ListItemText
                       primary={conversation.title}
@@ -256,6 +250,26 @@ const ConversationList: React.FC<ConversationListProps> = ({
                     />
                   )}
                 </ListItemButton>
+                {editMode !== conversation.id && (
+                  <Box sx={{ position: 'absolute', right: 16, display: 'flex' }}>
+                    <Tooltip title="Edit">
+                      <IconButton
+                        edge="end"
+                        onClick={(e) => handleEditClick(conversation, e)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        edge="end"
+                        onClick={(e) => handleDeleteClick(conversation.id, e)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                )}
               </ListItem>
             ))}
           </List>
@@ -278,6 +292,14 @@ const ConversationList: React.FC<ConversationListProps> = ({
           <Button onClick={handleConfirmDelete} color="error">Delete</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+      />
     </Box>
   );
 };

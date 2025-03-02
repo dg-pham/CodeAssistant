@@ -218,3 +218,62 @@ async def update_memory_priority(
     except Exception as e:
         logger.error(f"Unexpected error in update_memory_priority: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@router.patch("/users/{user_id}/memories/priority", response_model=dict)
+async def update_memory_priority(
+        user_id: str,
+        update_data: dict,  # Nhận key và priority từ body
+        session: Session = Depends(get_session)
+):
+    """Cập nhật ưu tiên của một mục nhớ"""
+    try:
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id is required")
+
+        # Lấy key và priority từ body request
+        key = update_data.get('key')
+        priority = update_data.get('priority')
+
+        if not key:
+            raise HTTPException(status_code=400, detail="key is required")
+        if priority is None:
+            raise HTTPException(status_code=400, detail="priority is required")
+        if priority < 0.0 or priority > 1.0:
+            raise HTTPException(status_code=400, detail="Priority must be between 0.0 and 1.0")
+
+        # Kiểm tra user tồn tại
+        user_service = UserService(session)
+        user = user_service.get_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
+
+        memory_service = AgentMemoryService(session)
+
+        # Kiểm tra memory tồn tại
+        existing_memory = memory_service.get_memory_by_key(user_id, key)
+        if not existing_memory:
+            raise HTTPException(status_code=404, detail=f"Memory with key '{key}' not found for user {user_id}")
+
+        success = memory_service.update_memory_priority(user_id, key, priority)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update memory priority")
+
+        return {
+            "success": True,
+            "message": f"Memory priority updated to {priority}",
+            "user_id": user_id,
+            "key": key,
+            "priority": priority
+        }
+
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in update_memory_priority: {str(e)}")
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database error occurred")
+    except Exception as e:
+        logger.error(f"Unexpected error in update_memory_priority: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
