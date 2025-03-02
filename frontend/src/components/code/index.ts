@@ -1,8 +1,11 @@
-export * from './CodeBlock';
-export * from './CodeEditor';
-export * from './CodeDiff';
-export * from './CodeResult';
-export * from './GenerateCodeTab';
-export * from './OptimizeCodeTab';
-export * from './TranslateCodeTab';
-export * from './ExplainCodeTab';
+import CodeEditor from './CodeEditor';
+import SnippetCard from './SnippetCard';
+import SnippetForm from './SnippetForm';
+import SnippetList from './SnippetList';
+
+export {
+  CodeEditor,
+  SnippetCard,
+  SnippetForm,
+  SnippetList
+};

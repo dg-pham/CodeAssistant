@@ -1,33 +1,57 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { MainLayout } from '../components/layout';
-import { Button } from '../components/common';
+import { Box, Typography, Button, Paper } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import Layout from '@/components/layout/Layout';
 
-export const NotFoundPage: React.FC = () => {
+const NotFoundPage: React.FC = () => {
+  const navigate = useNavigate();
+
   return (
-    <MainLayout>
-      <div className="min-h-[calc(100vh-160px)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <div className="text-6xl font-extrabold text-primary-600 mb-4">404</div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Page not found</h1>
-          <p className="text-lg text-gray-600 mb-8">
-            Sorry, we couldn't find the page you're looking for.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
+    <Layout>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '80vh',
+          textAlign: 'center',
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 5,
+            width: '100%',
+            maxWidth: 500,
+            borderRadius: 2
+          }}
+        >
+          <Typography variant="h1" component="h1" sx={{ fontSize: '8rem', fontWeight: 700 }}>
+            404
+          </Typography>
+
+          <Typography variant="h4" component="h2" gutterBottom>
+            Page Not Found
+          </Typography>
+
+          <Typography variant="body1" color="text.secondary" paragraph>
+            The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+          </Typography>
+
+          <Box sx={{ mt: 4 }}>
             <Button
-              variant="primary"
-              onClick={() => window.history.back()}
+              variant="contained"
+              size="large"
+              onClick={() => navigate('/')}
             >
-              Go Back
+              Go to Homepage
             </Button>
-            <Link to="/">
-              <Button variant="outline">
-                Return Home
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    </MainLayout>
+          </Box>
+        </Paper>
+      </Box>
+    </Layout>
   );
 };
+
+export default NotFoundPage;

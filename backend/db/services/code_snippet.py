@@ -1,16 +1,18 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlmodel import Session, select
 
 from backend.db.models.code_snippet import CodeSnippet
+from backend.db.services import UserService
 from backend.decorators import db_transaction
 
 
 class CodeSnippetService:
     def __init__(self, session: Session):
         self.session = session
+        self.user_service = UserService(session)
 
     @db_transaction
     def save_snippet(self, snippet: CodeSnippet) -> str:
@@ -24,8 +26,8 @@ class CodeSnippetService:
         snippet.id = snippet_id
 
         if not hasattr(snippet, "created_at") or snippet.created_at is None:
-            snippet.created_at = datetime.utcnow()
-        snippet.updated_at = datetime.utcnow()
+            snippet.created_at = datetime.now(timezone.utc)
+        snippet.updated_at = datetime.now(timezone.utc)
 
         self.session.add(snippet)
         self.session.commit()

@@ -1,91 +1,113 @@
-/**
- * Truncates a string to a specified length and adds ellipsis
- * 
- * @param str The string to truncate
- * @param maxLength The maximum length of the string
- * @returns The truncated string
- */
-export function truncateString(str: string, maxLength: number): string {
-  if (str.length <= maxLength) return str;
-  return `${str.slice(0, maxLength)}...`;
-}
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 
 /**
- * Formats a date to a readable string
- * 
- * @param dateString The date string to format
- * @param options Formatting options
- * @returns The formatted date string
+ * Format a date string to a readable format
+ * @param dateString ISO date string
+ * @returns Formatted date string (e.g., "Jan 1, 2023")
  */
-export function formatDate(dateString: string, options: Intl.DateTimeFormatOptions = {}): string {
-  const date = new Date(dateString);
-  const defaultOptions: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    ...options
-  };
-
-  return new Intl.DateTimeFormat('en-US', defaultOptions).format(date);
-}
-
-/**
- * Formats a relative time (like "2 days ago")
- * 
- * @param dateString The date string to format
- * @returns The formatted relative time string
- */
-export function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
-  // Different time units in seconds
-  const minute = 60;
-  const hour = minute * 60;
-  const day = hour * 24;
-  const week = day * 7;
-  const month = day * 30;
-  const year = day * 365;
-
-  if (diffInSeconds < minute) {
-    return diffInSeconds === 1 ? '1 second ago' : `${diffInSeconds} seconds ago`;
-  } else if (diffInSeconds < hour) {
-    const minutes = Math.floor(diffInSeconds / minute);
-    return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
-  } else if (diffInSeconds < day) {
-    const hours = Math.floor(diffInSeconds / hour);
-    return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
-  } else if (diffInSeconds < week) {
-    const days = Math.floor(diffInSeconds / day);
-    return days === 1 ? '1 day ago' : `${days} days ago`;
-  } else if (diffInSeconds < month) {
-    const weeks = Math.floor(diffInSeconds / week);
-    return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-  } else if (diffInSeconds < year) {
-    const months = Math.floor(diffInSeconds / month);
-    return months === 1 ? '1 month ago' : `${months} months ago`;
-  } else {
-    const years = Math.floor(diffInSeconds / year);
-    return years === 1 ? '1 year ago' : `${years} years ago`;
+export const formatDate = (dateString: string): string => {
+  try {
+    const date = parseISO(dateString);
+    return format(date, 'MMM d, yyyy');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return dateString;
   }
-}
+};
 
 /**
- * Formats a file size
- * 
- * @param bytes The file size in bytes
- * @param decimals The number of decimal places
- * @returns The formatted file size string
+ * Format a date string to a time string
+ * @param dateString ISO date string
+ * @returns Formatted time string (e.g., "3:45 PM")
  */
-export function formatFileSize(bytes: number, decimals: number = 2): string {
-  if (bytes === 0) return '0 Bytes';
+export const formatTime = (dateString: string): string => {
+  try {
+    const date = parseISO(dateString);
+    return format(date, 'h:mm a');
+  } catch (error) {
+    console.error('Error formatting time:', error);
+    return dateString;
+  }
+};
 
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+/**
+ * Format a date string to a relative time (e.g., "5 minutes ago")
+ * @param dateString ISO date string
+ * @returns Relative time string
+ */
+export const formatRelativeTime = (dateString: string): string => {
+  try {
+    const date = parseISO(dateString);
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch (error) {
+    console.error('Error formatting relative time:', error);
+    return dateString;
+  }
+};
 
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+/**
+ * Format a date string to a datetime format
+ * @param dateString ISO date string
+ * @returns Formatted datetime string (e.g., "Jan 1, 2023, 3:45 PM")
+ */
+export const formatDateTime = (dateString: string): string => {
+  try {
+    const date = parseISO(dateString);
+    return format(date, 'MMM d, yyyy, h:mm a');
+  } catch (error) {
+    console.error('Error formatting datetime:', error);
+    return dateString;
+  }
+};
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
+/**
+ * Extract code blocks from markdown text
+ * @param markdown Markdown text containing code blocks
+ * @returns Array of code blocks with language and code
+ */
+export const extractCodeBlocks = (markdown: string): { language: string; code: string }[] => {
+  const regex = /```([\w-]*)\n([\s\S]*?)```/g;
+  const matches = [];
+  let match;
+
+  while ((match = regex.exec(markdown)) !== null) {
+    matches.push({
+      language: match[1] || 'text',
+      code: match[2].trim()
+    });
+  }
+
+  return matches;
+};
+
+/**
+ * Format token count with appropriate units
+ * @param count Number of tokens
+ * @returns Formatted token count (e.g., "1.2K tokens")
+ */
+export const formatTokenCount = (count: number): string => {
+  if (count < 1000) {
+    return `${count} tokens`;
+  } else if (count < 1000000) {
+    return `${(count / 1000).toFixed(1)}K tokens`;
+  } else {
+    return `${(count / 1000000).toFixed(1)}M tokens`;
+  }
+};
+
+/**
+ * Format file size with appropriate units
+ * @param bytes Size in bytes
+ * @returns Formatted file size (e.g., "1.2 MB")
+ */
+export const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  } else if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  } else {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+};

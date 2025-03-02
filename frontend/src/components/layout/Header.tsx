@@ -1,214 +1,75 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '../common/Button';
-import { useUserStore } from '../../store';
+import { RootState } from '@/store/store';
+import { AppBar, Toolbar, Typography, Button, IconButton, Menu, MenuItem, Avatar } from '@mui/material';
+import { Menu as MenuIcon, Code as CodeIcon } from '@mui/icons-material';
 
-export const Header: React.FC = () => {
-  const { currentUser, clearUser } = useUserStore();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const Header: React.FC = () => {
   const navigate = useNavigate();
+  const { currentUser } = useSelector((state: RootState) => state.user);
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
-  const handleLogout = () => {
-    clearUser();
-    navigate('/login');
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    handleMenuClose();
   };
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0 flex items-center">
-              <img
-                className="h-8 w-auto"
-                src="/logo.svg"
-                alt="CodeAgent Logo"
-              />
-              <span className="ml-2 text-xl font-bold text-primary-600">CodeAgent</span>
-            </Link>
-            <nav className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <Link
-                to="/"
-                className="border-transparent text-gray-500 hover:border-primary-500 hover:text-primary-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-              >
-                Home
-              </Link>
-              <Link
-                to="/code"
-                className="border-transparent text-gray-500 hover:border-primary-500 hover:text-primary-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-              >
-                Code
-              </Link>
-              <Link
-                to="/snippets"
-                className="border-transparent text-gray-500 hover:border-primary-500 hover:text-primary-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-              >
-                Snippets
-              </Link>
-              <Link
-                to="/conversations"
-                className="border-transparent text-gray-500 hover:border-primary-500 hover:text-primary-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-              >
-                Conversations
-              </Link>
-            </nav>
+    <AppBar position="fixed" color="primary">
+      <Toolbar>
+        <IconButton
+          edge="start"
+          color="inherit"
+          aria-label="menu"
+          sx={{ mr: 2 }}
+          onClick={handleMenuOpen}
+        >
+          <MenuIcon />
+        </IconButton>
+
+        <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: 'none', color: 'white', display: 'flex', alignItems: 'center' }}>
+          <CodeIcon sx={{ mr: 1 }} />
+          Code Agent
+        </Typography>
+
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+        >
+          <MenuItem onClick={() => handleNavigate('/')}>Dashboard</MenuItem>
+          <MenuItem onClick={() => handleNavigate('/chat')}>Chat</MenuItem>
+          <MenuItem onClick={() => handleNavigate('/code-editor')}>Code Editor</MenuItem>
+          <MenuItem onClick={() => handleNavigate('/snippets')}>Code Snippets</MenuItem>
+          <MenuItem onClick={() => handleNavigate('/settings')}>Settings</MenuItem>
+        </Menu>
+
+        {currentUser ? (
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ mr: 2 }}>
+              {currentUser.name}
+            </Typography>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+              {currentUser.name.charAt(0).toUpperCase()}
+            </Avatar>
           </div>
-
-          <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            {currentUser ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-500">
-                  Welcome, <span className="font-medium text-gray-900">{currentUser.name}</span>
-                </span>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/login')}
-                >
-                  Login
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => navigate('/register')}
-                >
-                  Sign Up
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="-mr-2 flex items-center sm:hidden">
-            <button
-              type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-              aria-expanded="false"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <span className="sr-only">Open main menu</span>
-              {mobileMenuOpen ? (
-                <svg
-                  className="block h-6 w-6"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="block h-6 w-6"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      <div className={`${mobileMenuOpen ? 'block' : 'hidden'} sm:hidden`}>
-        <div className="pt-2 pb-3 space-y-1">
-          <Link
-            to="/"
-            className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary-500 hover:text-primary-700"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Home
-          </Link>
-          <Link
-            to="/code"
-            className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary-500 hover:text-primary-700"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Code
-          </Link>
-          <Link
-            to="/snippets"
-            className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary-500 hover:text-primary-700"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Snippets
-          </Link>
-          <Link
-            to="/conversations"
-            className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-primary-500 hover:text-primary-700"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Conversations
-          </Link>
-        </div>
-
-        <div className="pt-4 pb-3 border-t border-gray-200">
-          {currentUser ? (
-            <div className="space-y-3 px-4">
-              <div className="text-base font-medium text-gray-800">
-                {currentUser.name}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                fullWidth
-                onClick={() => {
-                  handleLogout();
-                  setMobileMenuOpen(false);
-                }}
-              >
-                Logout
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2 px-4">
-              <Button
-                variant="outline"
-                size="sm"
-                fullWidth
-                onClick={() => {
-                  navigate('/login');
-                  setMobileMenuOpen(false);
-                }}
-              >
-                Login
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                fullWidth
-                onClick={() => {
-                  navigate('/register');
-                  setMobileMenuOpen(false);
-                }}
-              >
-                Sign Up
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-    </header>
+        ) : (
+          <Button color="inherit" component={Link} to="/login">
+            Login
+          </Button>
+        )}
+      </Toolbar>
+    </AppBar>
   );
 };
+
+export default Header;
