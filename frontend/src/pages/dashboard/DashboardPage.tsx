@@ -178,7 +178,7 @@ const DashboardPage: React.FC = () => {
                     <Button
                       variant="text"
                       size="small"
-                      onClick={() => navigateTo('/settings')}
+                      onClick={() => navigateTo('/settings?tab=memory')}
                     >
                       View Details
                     </Button>

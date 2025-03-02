@@ -1,4 +1,16 @@
 import logging
+import os
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+if os.path.exists("./backend.log"):
+    os.remove("./backend.log")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("./backend.log"),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger('L')

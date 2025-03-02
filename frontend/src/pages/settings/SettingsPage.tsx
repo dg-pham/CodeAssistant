@@ -49,6 +49,7 @@ import { Memory } from '@/types';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { clearCurrentUser } from '@/store/slices/userSlice';
 import { ExitToApp as LogoutIcon } from '@mui/icons-material';
+import { useLocation } from 'react-router-dom';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -123,6 +124,15 @@ const SettingsPage: React.FC = () => {
       setFilteredMemories(memories);
     }
   }, [memories, selectedContext]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+
+    if (tabParam === 'memory') {
+      setTabValue(1);
+    }
+  }, [location]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

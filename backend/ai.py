@@ -20,7 +20,8 @@ from backend.db.services.memory import AgentMemoryService
 from backend.db.services.message import MessageService
 from backend.db.services.user import UserService
 from backend.log import logger
-from backend.models import CodeResponse, CodeRequest
+from backend.schemas.code_request import CodeRequest
+from backend.schemas.code_response import CodeResponse
 from backend.prompts import SYSTEM_PROMPTS
 
 config = AzureOpenAIConfig()

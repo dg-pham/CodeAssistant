@@ -9,6 +9,11 @@ from backend.log import logger
 
 config = AzureOpenAIConfig()
 
+client = openai.AzureOpenAI(
+    api_key=config.api_key,
+    api_version=config.api_version,
+    azure_endpoint=config.endpoint
+)
 
 class PatternExtractor:
     def __init__(self):
@@ -27,8 +32,8 @@ class PatternExtractor:
     async def _analyze_code_pattern(self, code: str, language: str, user_id: str):
         """Phân tích mẫu mã để học hỏi"""
         try:
-            response = openai.ChatCompletion.create(
-                deployment_id=config.deployment_name,
+            response = client.chat.completions.create(
+                model=config.deployment_name,
                 messages=[
                     {"role": "system",
                      "content": f"Analyze this {language} code and extract coding style preferences like indentation, naming conventions, comment style, and code organization patterns."},

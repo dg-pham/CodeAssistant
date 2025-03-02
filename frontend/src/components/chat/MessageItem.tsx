@@ -11,6 +11,7 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ContentCopy, ThumbUp, ThumbDown, Code } from '@mui/icons-material';
 import { submitFeedback } from '@/store/slices/feedbackSlice';
 import { setCurrentCode, setLanguage } from '@/store/slices/codeSlice';
+import { feedbackService } from '@/api';
 
 interface MessageItemProps {
   message: Message;
@@ -27,6 +28,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [existingFeedback, setExistingFeedback] = useState<any>(null);
 
   // Debug log when component renders
   useEffect(() => {
@@ -39,8 +41,30 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     setSnackbarOpen(true);
   };
 
-  const handleOpenFeedback = () => {
+  const handleOpenFeedback = async () => {
     console.log('Opening feedback form for message:', message.id);
+
+    try {
+      const messageFeedbacks = await feedbackService.getMessageFeedback(message.id);
+
+      if (messageFeedbacks && messageFeedbacks.length > 0) {
+        const latestFeedback = messageFeedbacks[0];
+        setExistingFeedback(latestFeedback);
+        setRating(latestFeedback.rating);
+        setComment(latestFeedback.comment || '');
+        console.log('Loaded existing feedback:', latestFeedback);
+      } else {
+        setExistingFeedback(null);
+        setRating(null);
+        setComment('');
+      }
+    } catch (error) {
+      console.error('Error loading feedback:', error);
+      setExistingFeedback(null);
+      setRating(null);
+      setComment('');
+    }
+
     setShowFeedback(true);
   };
 
@@ -147,11 +171,32 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
           borderRadius: 2,
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="subtitle2" color="text.secondary">
+        <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            mb: 1,
+            flexWrap: 'nowrap',
+            alignItems: 'flex-start'
+        }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{
+              flexShrink: 0,
+              mr: 1
+            }}
+          >
             {isUserMessage ? 'You' : 'Code Agent'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              textAlign: 'right',
+              flexShrink: 0,
+              minWidth: '100px'
+            }}
+          >
             {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
           </Typography>
         </Box>
@@ -280,7 +325,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
             ) : (
               // Feedback form
               <>
-                <Typography variant="subtitle2">How was this response?</Typography>
+                <Typography variant="subtitle2">
+                  {existingFeedback ? 'Update your feedback' : 'How was this response?'}
+                </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <Rating
                     value={rating}
@@ -315,7 +362,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                     onClick={handleSubmitFeedback}
                     disabled={!rating || isFeedbackSubmitting}
                   >
-                    {isFeedbackSubmitting ? 'Submitting...' : 'Submit'}
+                    {isFeedbackSubmitting ? 'Submitting...' : existingFeedback ? 'Update' : 'Submit'}
                   </Button>
                 </Box>
               </>

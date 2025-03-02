@@ -10,6 +10,11 @@ from backend.log import logger
 
 config = AzureOpenAIConfig()
 
+client = openai.AzureOpenAI(
+    api_key=config.api_key,
+    api_version=config.api_version,
+    azure_endpoint=config.endpoint
+)
 
 class FeedbackManager:
     def __init__(self):
@@ -66,8 +71,8 @@ class FeedbackManager:
         """Trích xuất và lưu trữ các mẫu tích cực từ phản hồi"""
         try:
             # Trích xuất các điểm tích cực bằng AI
-            response = openai.ChatCompletion.create(
-                deployment_id=config.deployment_name,
+            response = client.chat.completions.create(
+                model=config.deployment_name,
                 messages=[
                     {"role": "system",
                      "content": "Identify what made this response helpful. Extract coding style preferences, explanation depth preferences, and other patterns that should be remembered for future interactions."},
@@ -111,8 +116,8 @@ class FeedbackManager:
         """Trích xuất và lưu trữ các mẫu tiêu cực từ phản hồi"""
         try:
             # Trích xuất các điểm tiêu cực bằng AI
-            response = openai.ChatCompletion.create(
-                deployment_id=config.deployment_name,
+            response = client.chat.completions.create(
+                model=config.deployment_name,
                 messages=[
                     {"role": "system",
                      "content": "Identify what could be improved in this response. Extract issues with coding style, explanation clarity, or other patterns that should be corrected in future interactions."},

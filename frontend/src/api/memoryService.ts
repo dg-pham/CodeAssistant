@@ -31,8 +31,10 @@ const memoryService = {
 
   // Update memory priority
   updateMemoryPriority: async (userId: string, key: string, priority: number): Promise<{success: boolean, message: string, priority: number}> => {
+    const encodedKey = encodeURIComponent(key);
+
     const response = await api.patch<{success: boolean, message: string, priority: number}>(
-      `/users/${userId}/memories/${key}/priority`,
+      `/users/${userId}/memories/${encodedKey}/priority`,
       { priority }
     );
     return response.data;
