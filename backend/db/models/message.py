@@ -1,8 +1,9 @@
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sqlmodel import SQLModel, Field, Relationship
 
 from backend.db.models.conversation import Conversation
+from backend.utils.helpers import vietnam_now
 
 
 class Message(SQLModel, table=True):
@@ -12,7 +13,7 @@ class Message(SQLModel, table=True):
     conversation_id: str = Field(foreign_key="conversations.id")
     role: str
     content: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=vietnam_now)
 
     # Relationships
     conversation: Optional[Conversation] = Relationship(back_populates="messages")

@@ -1,11 +1,12 @@
 import uuid
 from typing import List, Optional
 from sqlmodel import Session, select
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from backend.db.models.memory import AgentMemory
 from backend.db.services import UserService
 from backend.decorators import db_transaction
+from backend.utils.helpers import vietnam_now
 
 
 class AgentMemoryService:
@@ -32,7 +33,7 @@ class AgentMemoryService:
             existing_memory.value = memory.value
             existing_memory.context = memory.context
             existing_memory.priority = memory.priority
-            existing_memory.updated_at = datetime.utcnow()
+            existing_memory.updated_at = vietnam_now()
 
             self.session.add(existing_memory)
             self.session.commit()
@@ -46,8 +47,8 @@ class AgentMemoryService:
 
             # Thêm timestamp nếu chưa có
             if not hasattr(memory, "created_at") or memory.created_at is None:
-                memory.created_at = datetime.utcnow()
-            memory.updated_at = datetime.utcnow()
+                memory.created_at = vietnam_now()
+            memory.updated_at = vietnam_now()
 
             self.session.add(memory)
             self.session.commit()
@@ -113,7 +114,7 @@ class AgentMemoryService:
             return False
 
         memory.priority = new_priority
-        memory.updated_at = datetime.utcnow()
+        memory.updated_at = vietnam_now()
 
         self.session.add(memory)
         self.session.commit()

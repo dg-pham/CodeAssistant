@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlmodel import Session, select
@@ -7,6 +6,7 @@ from sqlmodel import Session, select
 from backend.db.models.code_snippet import CodeSnippet
 from backend.db.services import UserService
 from backend.decorators import db_transaction
+from backend.utils.helpers import vietnam_now
 
 
 class CodeSnippetService:
@@ -26,8 +26,8 @@ class CodeSnippetService:
         snippet.id = snippet_id
 
         if not hasattr(snippet, "created_at") or snippet.created_at is None:
-            snippet.created_at = datetime.now(timezone.utc)
-        snippet.updated_at = datetime.now(timezone.utc)
+            snippet.created_at = vietnam_now()
+        snippet.updated_at = vietnam_now()
 
         self.session.add(snippet)
         self.session.commit()
@@ -69,7 +69,7 @@ class CodeSnippetService:
             if hasattr(snippet, key):
                 setattr(snippet, key, value)
 
-        snippet.updated_at = datetime.utcnow()
+        snippet.updated_at = vietnam_now()
 
         self.session.add(snippet)
         self.session.commit()

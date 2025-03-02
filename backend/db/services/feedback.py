@@ -1,12 +1,13 @@
 import uuid
 from typing import Optional, List
 from sqlmodel import Session, select
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from backend.db.models.feedback import Feedback
 from backend.db.models.message import Message
 from backend.db.services import MessageService
 from backend.decorators import db_transaction
+from backend.utils.helpers import vietnam_now
 
 
 class FeedbackService:
@@ -26,7 +27,7 @@ class FeedbackService:
 
         # Thêm timestamp nếu chưa có
         if not hasattr(feedback, "created_at") or feedback.created_at is None:
-            feedback.created_at = datetime.utcnow()
+            feedback.created_at = vietnam_now()
 
         self.session.add(feedback)
         self.session.commit()

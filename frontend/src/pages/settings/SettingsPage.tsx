@@ -157,6 +157,11 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    dispatch(clearCurrentUser());
+    navigate('/login');
+  };
+
   const handleContextSelect = (context: string | null) => {
     setSelectedContext(context);
   };
@@ -242,6 +247,18 @@ const SettingsPage: React.FC = () => {
                     >
                       Update Username
                     </Button>
+
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<LogoutIcon />}
+                      onClick={handleLogout}
+                      sx={{ mt: 2 }}
+                      fullWidth
+                    >
+                      Logout
+                    </Button>
+
                   </CardContent>
                 </Card>
               </Grid>

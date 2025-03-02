@@ -1,14 +1,17 @@
-import React from 'react';
-import { useSelector } from 'react-redux';
+import React, { useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { RootState } from '@/store/store';
-import { AppBar, Toolbar, Typography, Button, IconButton, Menu, MenuItem, Avatar } from '@mui/material';
-import { Menu as MenuIcon, Code as CodeIcon } from '@mui/icons-material';
+import { RootState, useAppDispatch } from '@/store/store';
+import { clearCurrentUser } from '@/store/slices/userSlice'; // Thêm import
+import { AppBar, Toolbar, Typography, Button, IconButton, Menu, MenuItem, Avatar, Divider } from '@mui/material';
+import { Menu as MenuIcon, Code as CodeIcon, ExitToApp as LogoutIcon } from '@mui/icons-material';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { currentUser } = useSelector((state: RootState) => state.user);
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -18,9 +21,24 @@ const Header: React.FC = () => {
     setAnchorEl(null);
   };
 
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchorEl(null);
+  };
+
   const handleNavigate = (path: string) => {
     navigate(path);
     handleMenuClose();
+  };
+
+  // Thêm hàm xử lý đăng xuất
+  const handleLogout = () => {
+    dispatch(clearCurrentUser());
+    handleUserMenuClose();
+    navigate('/login');
   };
 
   return (
@@ -55,12 +73,29 @@ const Header: React.FC = () => {
 
         {currentUser ? (
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ mr: 2 }}>
+            <Button
+              color="inherit"
+              onClick={handleUserMenuOpen}
+              startIcon={
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </Avatar>
+              }
+            >
               {currentUser.name}
-            </Typography>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-              {currentUser.name.charAt(0).toUpperCase()}
-            </Avatar>
+            </Button>
+            <Menu
+              anchorEl={userMenuAnchorEl}
+              open={Boolean(userMenuAnchorEl)}
+              onClose={handleUserMenuClose}
+            >
+              <MenuItem onClick={() => handleNavigate('/settings')}>Settings</MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
+                Logout
+              </MenuItem>
+            </Menu>
           </div>
         ) : (
           <Button color="inherit" component={Link} to="/login">

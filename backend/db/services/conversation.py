@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from sqlmodel import Session, select
 
 from backend.db.models.conversation import Conversation
 from backend.decorators import db_transaction
+from backend.utils.helpers import vietnam_now
 
 
 class ConversationService:
@@ -57,7 +58,7 @@ class ConversationService:
             if hasattr(conversation, key):
                 setattr(conversation, key, value)
 
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = vietnam_now()
         self.session.add(conversation)
         self.session.commit()
         self.session.refresh(conversation)

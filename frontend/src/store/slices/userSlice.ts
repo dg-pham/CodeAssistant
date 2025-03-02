@@ -58,6 +58,8 @@ const userSlice = createSlice({
     },
     clearCurrentUser: (state) => {
       state.currentUser = null;
+      // Xóa thông tin người dùng từ localStorage
+      localStorage.removeItem('user_id');
     }
   },
   extraReducers: (builder) => {

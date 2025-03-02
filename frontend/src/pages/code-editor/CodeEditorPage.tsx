@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -15,6 +15,7 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  Snackbar
 } from '@mui/material';
 import {
   PlayArrow as RunIcon,
@@ -24,34 +25,23 @@ import {
   Info as ExplainIcon,
   ContentCopy as CopyIcon,
 } from '@mui/icons-material';
-import { ErrorBoundary } from 'react-error-boundary';
 import { useSelector } from 'react-redux';
 import { RootState, useAppDispatch } from '@/store/store';
-import { generateCode, optimizeCode, translateCode, explainCode, saveCodeSnippet } from '@/store/slices/codeSlice';
+import { generateCode, optimizeCode, translateCode, explainCode, saveCodeSnippet, setCurrentCode, setLanguage } from '@/store/slices/codeSlice';
 import { getOrCreateAnonymousUser } from '@/store/slices/userSlice';
-import { CodeEditor } from '@/components/code';
+import { CodeEditor, SnippetForm } from '@/components/code';
 import { extractCodeBlocks } from '@/utils/formatters';
 import Layout from '@/components/layout/Layout';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { CodeSnippetCreate } from '@/types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
 }
-
-const EditorErrorFallback = () => (
-  <Paper sx={{ p: 4, textAlign: 'center', height: '100%' }}>
-    <Typography variant="h6" color="error" gutterBottom>
-      Can not load Code Editor
-    </Typography>
-    <Typography variant="body2">
-      A problem occurs when loading Code Editor. Please refresh or try later.
-    </Typography>
-  </Paper>
-);
 
 const TabPanel = (props: TabPanelProps) => {
   const { children, value, index, ...other } = props;
@@ -84,10 +74,18 @@ const CodeEditorPage: React.FC = () => {
   const [languageFrom, setLanguageFrom] = useState('javascript');
   const [languageTo, setLanguageTo] = useState('python');
   const [optimizationLevel, setOptimizationLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [optimizationDescription, setOptimizationDescription] = useState('');
   const [tabValue, setTabValue] = useState(0);
+
+  // States for saving snippets
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [snippetName, setSnippetName] = useState('');
   const [snippetTags, setSnippetTags] = useState<string[]>([]);
+
+  // States for snackbar notifications
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
   // Ensure we have a user
   useEffect(() => {
@@ -133,7 +131,7 @@ const CodeEditorPage: React.FC = () => {
             language_from: language,
             optimization_level: optimizationLevel,
             user_id: currentUser.id,
-            description: `Code optimization with level: ${optimizationLevel}`
+            description: optimizationDescription || `Code optimization with level: ${optimizationLevel}`
           }));
           break;
         case 'translate':
@@ -143,7 +141,7 @@ const CodeEditorPage: React.FC = () => {
             language_from: languageFrom,
             language_to: languageTo,
             user_id: currentUser.id,
-            description: `Code translation from ${languageFrom} to ${languageTo}`
+            description: `Translated from ${languageFrom} to ${languageTo}`
           }));
           break;
         case 'explain':
@@ -152,7 +150,7 @@ const CodeEditorPage: React.FC = () => {
             code: currentCode,
             language_from: language,
             user_id: currentUser.id,
-            description: `Code explanation`
+            description: `Code explanation for ${language} code`
           }));
           break;
       }
@@ -161,25 +159,48 @@ const CodeEditorPage: React.FC = () => {
       setTabValue(1);
     } catch (err) {
       console.error('Error processing code action:', err);
+      setSnackbarSeverity('error');
+      setSnackbarMessage('Error processing your request. Please try again.');
+      setSnackbarOpen(true);
     }
   };
 
-  const handleSaveSnippet = () => {
+  // Handler for opening save dialog
+  const handleOpenSaveDialog = () => {
+    // Set default title based on current action
+    let defaultTitle = '';
+    if (action === 'translate') {
+      defaultTitle = `Translated from ${languageFrom} to ${languageTo}`;
+    } else if (action === 'optimize') {
+      defaultTitle = `Optimized ${language} code (${optimizationLevel})`;
+    } else if (action === 'generate') {
+      defaultTitle = description || 'Generated code';
+    } else if (action === 'explain') {
+      defaultTitle = `${language} code with explanation`;
+    } else {
+      defaultTitle = `Code in ${language}`;
+    }
+
+    setSnippetName(defaultTitle);
+    setSaveDialogOpen(true);
+  };
+
+  // Handler for saving snippet
+  const handleSaveSnippet = (snippetData: CodeSnippetCreate) => {
     if (!currentUser) return;
 
-    const codeToSave = action === 'generate' && lastResponse
-      ? handleExtractCodeFromResponse() || currentCode
-      : currentCode;
-
-    const snippetLanguage = action === 'translate' ? languageTo : language;
-
-    dispatch(saveCodeSnippet({
-      user_id: currentUser.id,
-      language: snippetLanguage,
-      code: codeToSave,
-      description: snippetName || description || 'Untitled Snippet',
-      tags: snippetTags
-    }));
+    dispatch(saveCodeSnippet(snippetData))
+      .unwrap()
+      .then(() => {
+        setSnackbarSeverity('success');
+        setSnackbarMessage('Code snippet saved successfully!');
+        setSnackbarOpen(true);
+      })
+      .catch((error) => {
+        setSnackbarSeverity('error');
+        setSnackbarMessage('Failed to save code snippet: ' + error);
+        setSnackbarOpen(true);
+      });
 
     setSaveDialogOpen(false);
   };
@@ -191,11 +212,17 @@ const CodeEditorPage: React.FC = () => {
   const handleCopyToClipboard = () => {
     const text = lastResponse?.result || '';
     navigator.clipboard.writeText(text);
+    setSnackbarSeverity('success');
+    setSnackbarMessage('Content copied to clipboard');
+    setSnackbarOpen(true);
   };
 
   const handleCopyCodeToClipboard = () => {
     const code = handleExtractCodeFromResponse() || '';
     navigator.clipboard.writeText(code);
+    setSnackbarSeverity('success');
+    setSnackbarMessage('Code copied to clipboard');
+    setSnackbarOpen(true);
   };
 
   // Determine which action component to show
@@ -243,6 +270,15 @@ const CodeEditorPage: React.FC = () => {
       case 'optimize':
         return (
           <Stack spacing={2}>
+            <TextField
+              label="Optimization Description"
+              value={optimizationDescription}
+              onChange={(e) => setOptimizationDescription(e.target.value)}
+              fullWidth
+              required
+              placeholder="Describe what you want to optimize"
+              helperText="Required - e.g., 'Optimize for performance' or 'Reduce code complexity'"
+            />
             <FormControl fullWidth>
               <InputLabel>Optimization Level</InputLabel>
               <Select
@@ -260,7 +296,7 @@ const CodeEditorPage: React.FC = () => {
               color="warning"
               startIcon={<OptimizeIcon />}
               onClick={handleCodeAction}
-              disabled={isProcessing || !currentCode.trim()}
+              disabled={isProcessing || !currentCode.trim() || !optimizationDescription.trim()}
             >
               Optimize Code
             </Button>
@@ -379,14 +415,10 @@ const CodeEditorPage: React.FC = () => {
 
             <TabPanel value={tabValue} index={0}>
               <Box sx={{ height: '100%', p: 0 }}>
-                <ErrorBoundary FallbackComponent={EditorErrorFallback}>
-                  <Suspense fallback={<CircularProgress />}>
-                    <CodeEditor
-                      height="100%"
-                      onSaveCode={() => setSaveDialogOpen(true)}
-                    />
-                  </Suspense>
-                </ErrorBoundary>
+                <CodeEditor
+                  height="100%"
+                  onSaveCode={handleOpenSaveDialog}
+                />
               </Box>
             </TabPanel>
 
@@ -509,7 +541,7 @@ const CodeEditorPage: React.FC = () => {
             <Button
               variant="outlined"
               startIcon={<SaveIcon />}
-              onClick={() => setSaveDialogOpen(true)}
+              onClick={handleOpenSaveDialog}
               fullWidth
             >
               Save Code Snippet
@@ -518,8 +550,41 @@ const CodeEditorPage: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Save Dialog (would be implemented as a component) */}
-      {/* For brevity, the actual dialog implementation is omitted here */}
+      {/* Save Dialog */}
+      {currentUser && (
+        <SnippetForm
+          open={saveDialogOpen}
+          onClose={() => setSaveDialogOpen(false)}
+          onSave={handleSaveSnippet}
+          initialData={{
+            id: undefined,
+            user_id: currentUser.id,
+            language: action === 'translate' ? languageTo : language,
+            code: action === 'generate' && lastResponse
+              ? handleExtractCodeFromResponse() || currentCode
+              : currentCode,
+            description: snippetName,
+            tags: snippetTags
+          }}
+          userId={currentUser.id}
+        />
+      )}
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Layout>
   );
 };

@@ -26,6 +26,7 @@ const userService = {
         } catch (error) {
           // If the user doesn't exist, create a new one
           console.warn('Stored user not found, creating new user');
+          localStorage.removeItem('user_id');
         }
       }
 

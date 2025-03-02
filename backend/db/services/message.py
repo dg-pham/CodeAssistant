@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from sqlmodel import Session, select
@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from backend.db.models.message import Message
 from backend.db.services.conversation import ConversationService
 from backend.decorators import db_transaction
+from backend.utils.helpers import vietnam_now
 
 
 class MessageService:
@@ -32,7 +33,7 @@ class MessageService:
         # Cập nhật thời gian cập nhật của cuộc hội thoại
         self.conversation_service.update_conversation(
             message.conversation_id,
-            updated_at=datetime.utcnow()
+            updated_at=vietnam_now()
         )
 
         self.session.commit()

@@ -21,7 +21,7 @@ interface SnippetFormProps {
   open: boolean;
   onClose: () => void;
   onSave: (snippet: CodeSnippetCreate) => void;
-  initialData?: CodeSnippet;
+  initialData?: Partial<CodeSnippet | CodeSnippetCreate>;
   userId: string;
 }
 
