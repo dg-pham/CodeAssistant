@@ -4,9 +4,15 @@ import { FeedbackCreate, Feedback, FeedbackResponse } from '@/types';
 const feedbackService = {
   // Submit feedback for a message
   submitFeedback: async (feedbackData: FeedbackCreate): Promise<{feedback_id: string, status: string}> => {
+  try {
     const response = await api.post<{feedback_id: string, status: string}>('/feedback', feedbackData);
+    console.log('Feedback API response:', response.data);
     return response.data;
-  },
+  } catch (error) {
+    console.error('Feedback API error:', error);
+    throw error;
+  }
+},
 
   // Get feedback by ID
   getFeedback: async (feedbackId: string): Promise<FeedbackResponse> => {

@@ -36,6 +36,7 @@ import {
 } from '@/store/slices/conversationSlice';
 import { Conversation } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 interface ConversationListProps {
   onSelectConversation?: (conversation: Conversation) => void;
@@ -47,6 +48,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
   selectedId
 }) => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { currentUser } = useSelector((state: RootState) => state.user);
   const { conversations, isLoading } = useSelector((state: RootState) => state.conversation);
 
@@ -73,6 +75,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
 
   const handleSelectConversation = (conversation: Conversation) => {
     dispatch(setCurrentConversation(conversation));
+
+    navigate(`/chat/${conversation.id}`);
+
     if (onSelectConversation) {
       onSelectConversation(conversation);
     }

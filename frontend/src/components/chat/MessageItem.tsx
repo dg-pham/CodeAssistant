@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Box, Typography, Paper, Avatar, IconButton, Tooltip, Rating, TextField, Button } from '@mui/material';
-import { useSelector, useDispatch } from 'react-redux';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Paper, Avatar, IconButton, Tooltip, Rating, TextField, Button, Snackbar, Alert } from '@mui/material';
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { RootState, useAppDispatch } from '@/store/store';
 import { Message } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -10,33 +11,48 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ContentCopy, ThumbUp, ThumbDown, Code } from '@mui/icons-material';
 import { submitFeedback } from '@/store/slices/feedbackSlice';
 import { setCurrentCode, setLanguage } from '@/store/slices/codeSlice';
-import { useNavigate } from 'react-router-dom';
 
 interface MessageItemProps {
   message: Message;
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { currentUser } = useSelector((state: RootState) => state.user);
   const [showFeedback, setShowFeedback] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [comment, setComment] = useState('');
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  // Debug log when component renders
+  useEffect(() => {
+    console.log('MessageItem rendered:', { messageId: message.id, role: message.role });
+  }, [message]);
 
   const handleCopyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+    setSnackbarMessage('Copied to clipboard');
+    setSnackbarOpen(true);
   };
 
   const handleOpenFeedback = () => {
+    console.log('Opening feedback form for message:', message.id);
     setShowFeedback(true);
   };
 
   const handleSubmitFeedback = async () => {
-    if (!rating || !currentUser) return;
+    if (!rating || !currentUser) {
+      console.log('Cannot submit feedback: missing rating or user', { rating, currentUser });
+      return;
+    }
 
     setIsFeedbackSubmitting(true);
+    console.log('Submitting feedback:', { messageId: message.id, rating, comment });
+
     try {
       await dispatch(submitFeedback({
         message_id: message.id,
@@ -44,12 +60,23 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         comment: comment || undefined
       })).unwrap();
 
-      // Reset and close feedback form
-      setShowFeedback(false);
-      setRating(null);
-      setComment('');
+      console.log('Feedback submitted successfully');
+
+      // Show success state
+      setFeedbackSubmitted(true);
+
+      // Close feedback form after 2 seconds
+      setTimeout(() => {
+        setShowFeedback(false);
+        setRating(null);
+        setComment('');
+        // Reset feedback submitted state after closing
+        setTimeout(() => setFeedbackSubmitted(false), 300);
+      }, 2000);
     } catch (error) {
       console.error('Failed to submit feedback:', error);
+      setSnackbarMessage('Failed to submit feedback. Please try again.');
+      setSnackbarOpen(true);
     } finally {
       setIsFeedbackSubmitting(false);
     }
@@ -58,16 +85,29 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const handleCopyCode = (code: string, language?: string) => {
     if (code) {
       navigator.clipboard.writeText(code);
+      setSnackbarMessage('Code copied to clipboard');
+      setSnackbarOpen(true);
     }
   };
 
   const handleLoadCodeToEditor = (code: string, language?: string) => {
+    console.log('Loading code to editor:', { codeLength: code.length, language });
     dispatch(setCurrentCode(code));
     if (language) {
       dispatch(setLanguage(language));
     }
 
-    navigate('/code-editor');
+    // Navigate to code editor page with state
+    navigate('/code-editor', {
+      state: {
+        fromChat: true,
+        codeLength: code.length,
+        language: language || 'text'
+      }
+    });
+
+    setSnackbarMessage('Code loaded to editor');
+    setSnackbarOpen(true);
   };
 
   // Extract language name from code fence
@@ -230,47 +270,75 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
         {!isUserMessage && showFeedback && (
           <Box sx={{ mt: 2, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
-            <Typography variant="subtitle2">How was this response?</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Rating
-                value={rating}
-                onChange={(event, newValue) => setRating(newValue)}
-                precision={1}
-              />
-              <Typography variant="caption" sx={{ ml: 1 }}>
-                {rating ? `${rating}/5` : 'Rate this response'}
-              </Typography>
-            </Box>
-            <TextField
-              multiline
-              fullWidth
-              rows={2}
-              size="small"
-              placeholder="Additional comments (optional)"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              sx={{ mb: 1 }}
-            />
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                size="small"
-                onClick={() => setShowFeedback(false)}
-                sx={{ mr: 1 }}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={handleSubmitFeedback}
-                disabled={!rating || isFeedbackSubmitting}
-              >
-                Submit
-              </Button>
-            </Box>
+            {feedbackSubmitted ? (
+              // Success message after submission
+              <Box sx={{ textAlign: 'center', py: 1 }}>
+                <Typography variant="subtitle2" color="success.main">
+                  Thank you for your feedback!
+                </Typography>
+              </Box>
+            ) : (
+              // Feedback form
+              <>
+                <Typography variant="subtitle2">How was this response?</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Rating
+                    value={rating}
+                    onChange={(event, newValue) => setRating(newValue)}
+                    precision={1}
+                  />
+                  <Typography variant="caption" sx={{ ml: 1 }}>
+                    {rating ? `${rating}/5` : 'Rate this response'}
+                  </Typography>
+                </Box>
+                <TextField
+                  multiline
+                  fullWidth
+                  rows={2}
+                  size="small"
+                  placeholder="Additional comments (optional)"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  sx={{ mb: 1 }}
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    size="small"
+                    onClick={() => setShowFeedback(false)}
+                    sx={{ mr: 1 }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleSubmitFeedback}
+                    disabled={!rating || isFeedbackSubmitting}
+                  >
+                    {isFeedbackSubmitting ? 'Submitting...' : 'Submit'}
+                  </Button>
+                </Box>
+              </>
+            )}
           </Box>
         )}
       </Paper>
+
+      {/* Snackbar notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
