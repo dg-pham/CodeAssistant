@@ -36,6 +36,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { CodeSnippetCreate } from '@/types';
+import { useLocation } from 'react-router-dom';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -66,6 +67,7 @@ const TabPanel = (props: TabPanelProps) => {
 
 const CodeEditorPage: React.FC = () => {
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const { currentUser, isLoading: userLoading } = useSelector((state: RootState) => state.user);
   const { currentCode, language, lastResponse, isProcessing, error } = useSelector((state: RootState) => state.code);
 
@@ -86,6 +88,11 @@ const CodeEditorPage: React.FC = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+
+  useEffect(() => {
+    // Check if we navigated from chat
+    setTabValue(0);
+  }, [location]);
 
   // Ensure we have a user
   useEffect(() => {

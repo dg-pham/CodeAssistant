@@ -10,6 +10,7 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ContentCopy, ThumbUp, ThumbDown, Code } from '@mui/icons-material';
 import { submitFeedback } from '@/store/slices/feedbackSlice';
 import { setCurrentCode, setLanguage } from '@/store/slices/codeSlice';
+import { useNavigate } from 'react-router-dom';
 
 interface MessageItemProps {
   message: Message;
@@ -17,6 +18,7 @@ interface MessageItemProps {
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { currentUser } = useSelector((state: RootState) => state.user);
   const [showFeedback, setShowFeedback] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
@@ -64,6 +66,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     if (language) {
       dispatch(setLanguage(language));
     }
+
+    navigate('/code-editor');
   };
 
   // Extract language name from code fence
