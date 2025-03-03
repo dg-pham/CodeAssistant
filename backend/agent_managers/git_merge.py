@@ -68,43 +68,152 @@ class GitMergeAgent:
         Returns:
             Đường dẫn đến repository đã clone và danh sách file xung đột
         """
+        temp_dir = None
         try:
             # Requires GitPython package
             import git
 
-            # Tạo thư mục tạm thời
+            # Tạo thư mục tạm thời với quyền truy cập đầy đủ
             temp_dir = tempfile.mkdtemp()
 
-            # Clone repository
-            repo = git.Repo.clone_from(repo_url, temp_dir)
+            # Thêm log để debug
+            logger.info(f"Created temporary directory: {temp_dir}")
 
-            # Checkout branch cơ sở
-            repo.git.checkout(base_branch)
+            # Clone repository
+            try:
+                # Clone với cài đặt depth=1 để giảm dung lượng và tăng tốc độ
+                # Đảm bảo lấy tất cả các nhánh
+                repo = git.Repo.clone_from(repo_url, temp_dir, branch=base_branch, no_single_branch=True)
+            except git.GitCommandError as clone_error:
+                if "Authentication failed" in str(clone_error):
+                    raise ValueError(f"Authentication failed for repository: {repo_url}")
+                elif "not found" in str(clone_error).lower():
+                    raise ValueError(f"Repository not found: {repo_url}")
+                else:
+                    raise
+
+            # Fetch tất cả các nhánh để đảm bảo có đầy đủ thông tin
+            try:
+                logger.info("Fetching all branches...")
+                repo.git.fetch('--all')
+            except git.GitCommandError as fetch_error:
+                logger.warning(f"Failed to fetch all branches: {fetch_error}")
+
+            # Lấy danh sách tất cả các nhánh (cả local và remote)
+            all_branches = []
+            try:
+                # Nhánh local
+                all_branches.extend([b.name for b in repo.branches])
+                # Nhánh remote
+                for ref in repo.remote().refs:
+                    branch_name = ref.name.replace('origin/', '')
+                    if branch_name not in all_branches:
+                        all_branches.append(branch_name)
+            except Exception as branch_error:
+                logger.warning(f"Error listing branches: {branch_error}")
+
+            logger.info(f"Available branches: {all_branches}")
+
+            # Kiểm tra xem branch cơ sở có tồn tại không
+            try:
+                logger.info(f"Checking out base branch: {base_branch}")
+                repo.git.checkout(base_branch)
+            except git.GitCommandError:
+                logger.error(f"Base branch '{base_branch}' does not exist in repository")
+                raise ValueError(f"Base branch '{base_branch}' does not exist in repository")
 
             # Tạo branch tạm thời cho merge
             temp_branch = f"temp_merge_{uuid.uuid4().hex[:8]}"
+            logger.info(f"Creating temporary branch: {temp_branch}")
             repo.git.checkout('-b', temp_branch)
+
+            # Kiểm tra và thử merge nhánh đích
+            logger.info(f"Attempting to merge target branch: {target_branch}")
+
+            # Kiểm tra xem target branch có tồn tại không
+            branch_exists = False
+
+            # Kiểm tra nếu tồn tại như là nhánh local
+            if target_branch in repo.branches:
+                branch_exists = True
+
+            # Kiểm tra nếu tồn tại như là nhánh remote
+            if not branch_exists:
+                try:
+                    # Thử fetch nhánh đích cụ thể
+                    repo.git.fetch('origin', target_branch)
+                    branch_exists = True
+                except git.GitCommandError:
+                    pass
+
+            # Nếu vẫn không tìm thấy, kiểm tra lại danh sách refs
+            if not branch_exists:
+                for ref in repo.remote().refs:
+                    if target_branch in ref.name:
+                        branch_exists = True
+                        break
+
+            if not branch_exists:
+                logger.error(f"Target branch '{target_branch}' does not exist in repository")
+                raise ValueError(f"Target branch '{target_branch}' does not exist in repository")
 
             # Thử merge branch đích
             conflicted_files = []
             try:
-                repo.git.merge(target_branch)
+                # Thử merge từ nhánh remote trước
+                try:
+                    repo.git.merge(f"origin/{target_branch}")
+                except git.GitCommandError as e:
+                    if "not something we can merge" in str(e):
+                        # Nếu không thể merge từ remote, thử merge từ local
+                        repo.git.merge(target_branch)
+                    else:
+                        raise
+
             except git.GitCommandError as e:
-                # Lấy danh sách file xung đột
+                # Kiểm tra xem có phải là lỗi conflict không
                 if "CONFLICT" in str(e):
+                    logger.info("Merge conflicts detected")
                     output = repo.git.status()
-                    # Parse output to get conflicted files
+                    # Phân tích output để lấy danh sách file có xung đột
                     for line in output.split('\n'):
                         if "both modified:" in line:
                             filename = line.split("both modified:")[1].strip()
+                            logger.info(f"Conflict in file: {filename}")
                             conflicted_files.append(filename)
+                else:
+                    # Nếu là lỗi khác, hiển thị thông báo
+                    logger.error(f"Merge error: {str(e)}")
+                    raise ValueError(f"Error merging branches: {str(e)}")
+
+            if not conflicted_files:
+                logger.info("No conflicts found during merge")
 
             return temp_dir, conflicted_files
+        except ValueError as e:
+            # Re-raise các lỗi đã xử lý
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception as cleanup_error:
+                    logger.error(f"Error cleaning up: {cleanup_error}")
+            raise
+        except PermissionError as e:
+            logger.error(f"Permission error when accessing Git repository: {e}")
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception as cleanup_error:
+                    logger.error(f"Error cleaning up: {cleanup_error}")
+            raise ValueError(f"Permission denied when accessing Git repository. Try a different repository.")
         except Exception as e:
             logger.error(f"Error cloning repository: {str(e)}")
             # Clean up
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
+            if temp_dir and os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception as cleanup_error:
+                    logger.error(f"Error cleaning up: {cleanup_error}")
             raise
 
     def _get_file_content(self, repo_path: str, file_path: str) -> str:

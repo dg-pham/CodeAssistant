@@ -1,18 +1,18 @@
-import uuid
-import asyncio
 from typing import Dict, List, Optional, Any
-from fastapi import BackgroundTasks
 
 import openai
+from fastapi import BackgroundTasks
+
 from backend.LLM_Bundle.Azure_LLM import AzureOpenAIConfig
-from backend.db.models.agent_orchestration import AgentOrchestrationTask, AgentTaskResult
-from backend.db.services.agent_orchestration import AgentOrchestrationService
+from backend.agent_managers.feedback import FeedbackManager
 from backend.agent_managers.git_merge import GitMergeAgent
 from backend.agent_managers.pattern import PatternExtractor
-from backend.agent_managers.feedback import FeedbackManager
+from backend.db.models.agent_orchestration import AgentOrchestrationTask, AgentTaskResult
+from backend.db.services.agent_orchestration import AgentOrchestrationService
 from backend.log import logger
 from backend.prompts import SYSTEM_PROMPTS
 from backend.schemas.code_request import CodeRequest
+import re
 
 config = AzureOpenAIConfig()
 
@@ -92,15 +92,36 @@ class AgentOrchestrator:
     def _parse_agent_result(self, agent_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Phân tích kết quả từ agent để chuẩn bị cho agent tiếp theo
-
-        Args:
-            agent_result: Kết quả từ agent
-
-        Returns:
-            Dữ liệu đã được phân tích
         """
-        # Mặc định trả về kết quả nguyên gốc
-        return agent_result
+        # Tạo bản sao để tránh thay đổi dữ liệu gốc
+        parsed_result = agent_result.copy()
+
+        # Xử lý kết quả từ code_generator
+        if 'generated_code' in agent_result:
+            # Extract code từ generated_code
+            code_match = re.search(r'```python\s+(.*?)\s+```', agent_result['generated_code'], re.DOTALL)
+            if code_match:
+                parsed_result['code'] = code_match.group(1)
+            else:
+                parsed_result['code'] = agent_result['generated_code']
+
+        # Xử lý kết quả từ requirements_analyzer
+        if 'result_text' in agent_result and 'description' not in parsed_result:
+            parsed_result['description'] = agent_result['result_text']
+
+        # Truyền language nếu có
+        if 'language' in agent_result:
+            parsed_result['language_from'] = agent_result['language']
+            parsed_result['language_to'] = agent_result['language']
+
+        # Tìm language trong result_text nếu có
+        if 'result_text' in agent_result:
+            language_match = re.search(r'"language":\s*"(\w+)"', agent_result['result_text'])
+            if language_match:
+                parsed_result['language_from'] = language_match.group(1)
+                parsed_result['language_to'] = language_match.group(1)
+
+        return parsed_result
 
     async def decide_next_agent(self, task_id: str, current_result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -273,7 +294,8 @@ class AgentOrchestrator:
                 # Tạo code request
                 code_request = CodeRequest(
                     action="generate",
-                    description=input_data.get("description", ""),
+                    description=input_data.get("description", "Generated from requirements analysis")
+                                or "Generated from requirements analysis",
                     language_to=input_data.get("language_to", "python"),
                     user_id=input_data.get("user_id"),
                     comments=input_data.get("comments", True)
@@ -292,7 +314,7 @@ class AgentOrchestrator:
                 # Tạo code request
                 code_request = CodeRequest(
                     action="optimize",
-                    code=input_data.get("code", ""),
+                    code=input_data.get("code", "No code provided") or "No code provided",
                     language_from=input_data.get("language_from", "python"),
                     optimization_level=input_data.get("optimization_level", "medium"),
                     user_id=input_data.get("user_id")
@@ -311,7 +333,7 @@ class AgentOrchestrator:
                 # Tạo code request
                 code_request = CodeRequest(
                     action="translate",
-                    code=input_data.get("code", ""),
+                    code=input_data.get("code", "No code provided") or "No code provided",
                     language_from=input_data.get("language_from", "python"),
                     language_to=input_data.get("language_to", "javascript"),
                     user_id=input_data.get("user_id")
@@ -330,7 +352,7 @@ class AgentOrchestrator:
                 # Tạo code request
                 code_request = CodeRequest(
                     action="explain",
-                    code=input_data.get("code", ""),
+                    code=input_data.get("code", "No code provided") or "No code provided",
                     language_from=input_data.get("language_from", "python"),
                     user_id=input_data.get("user_id")
                 )

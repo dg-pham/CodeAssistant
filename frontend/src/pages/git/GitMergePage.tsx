@@ -51,14 +51,10 @@ const GitMergePage: React.FC = () => {
 
   // Load user's sessions and current session if ID is provided
   useEffect(() => {
-      if (currentUser) {
-        const interval = setInterval(() => {
-          dispatch(getUserMergeSessions(currentUser.id));
-        }, 1000); // Refresh every 10 seconds
-
-        return () => clearInterval(interval);
-      }
-    }, [dispatch, currentUser]);
+    if (currentUser?.id) {
+      dispatch(getUserMergeSessions(currentUser.id));
+    }
+  }, [dispatch, currentUser]);
 
   // Load session details and conflicts when sessionId changes
   useEffect(() => {
@@ -161,22 +157,22 @@ const GitMergePage: React.FC = () => {
   };
 
   const handleCompleteMerge = async () => {
-    if (currentSession) {
-      try {
-        await dispatch(completeMerge({
-          session_id: currentSession.id
-        })).unwrap();
+      if (currentSession) {
+        try {
+          await dispatch(completeMerge({
+            session_id: currentSession.id
+          })).unwrap();
 
-        // Refresh the session status
-        dispatch(getMergeSession(currentSession.id));
-          if (currentUser) {
+          // Refresh the session status
+          dispatch(getMergeSession(currentSession.id));
+          if (currentUser?.id) {
             dispatch(getUserMergeSessions(currentUser.id));
           }
-      } catch (error) {
-        console.error('Failed to complete merge:', error);
+        } catch (error) {
+          console.error('Failed to complete merge:', error);
+        }
       }
-    }
-  };
+    };
 
   if (!currentUser) {
     return (
