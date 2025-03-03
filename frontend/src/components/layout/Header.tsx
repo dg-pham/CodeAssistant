@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { RootState, useAppDispatch } from '@/store/store';
 import { clearCurrentUser } from '@/store/slices/userSlice'; // Thêm import
-import { AppBar, Toolbar, Typography, Button, IconButton, Menu, MenuItem, Avatar, Divider } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, IconButton, Menu, MenuItem, Avatar, Divider, Box } from '@mui/material';
 import { Menu as MenuIcon, Code as CodeIcon, ExitToApp as LogoutIcon } from '@mui/icons-material';
 
 const Header: React.FC = () => {
@@ -43,7 +43,8 @@ const Header: React.FC = () => {
 
   return (
     <AppBar position="fixed" color="primary">
-      <Toolbar>
+      <Toolbar  sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
         <IconButton
           edge="start"
           color="inherit"
@@ -54,10 +55,37 @@ const Header: React.FC = () => {
           <MenuIcon />
         </IconButton>
 
-        <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: 'none', color: 'white', display: 'flex', alignItems: 'center' }}>
-          <CodeIcon sx={{ mr: 1 }} />
+        <Typography
+            variant="h6"
+            component={Link}
+            to="/"
+            sx={{
+                flexGrow: 1,
+                textDecoration: 'none',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                borderRadius: '8px',
+                padding: '8px',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                }
+            }}
+        >
+          <Box
+            component="img"
+            src="/android-chrome-512x512.png"
+            alt="Code Agent Logo"
+            sx={{
+              height: 32,
+              width: 32,
+              mr: 1,
+              borderRadius: '50%'
+            }}
+          />
           Code Agent
         </Typography>
+        </div>
 
         <Menu
           anchorEl={anchorEl}
