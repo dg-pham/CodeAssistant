@@ -97,6 +97,8 @@ const Header: React.FC = () => {
           <MenuItem onClick={() => handleNavigate('/code-editor')}>Code Editor</MenuItem>
           <MenuItem onClick={() => handleNavigate('/snippets')}>Code Snippets</MenuItem>
           <MenuItem onClick={() => handleNavigate('/settings')}>Settings</MenuItem>
+          <MenuItem onClick={() => handleNavigate('/git-merge')}>Git Merge Assistant</MenuItem>
+          <MenuItem onClick={() => handleNavigate('/orchestration')}>Agent Orchestration</MenuItem>
         </Menu>
 
         {currentUser ? (

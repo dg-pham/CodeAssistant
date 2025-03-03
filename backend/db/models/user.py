@@ -1,10 +1,8 @@
-# backend/db/models/user.py
-from typing import Optional, List
-from datetime import datetime, timezone, timedelta
+from typing import List, Optional
+from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
 from backend.utils.helpers import vietnam_now
-
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -17,3 +15,5 @@ class User(SQLModel, table=True):
     conversations: List["Conversation"] = Relationship(back_populates="user")
     code_snippets: List["CodeSnippet"] = Relationship(back_populates="user")
     memories: List["AgentMemory"] = Relationship(back_populates="user")
+    git_merge_sessions: List["GitMergeSession"] = Relationship(back_populates="user")
+    orchestration_tasks: List["AgentOrchestrationTask"] = Relationship(back_populates="user")

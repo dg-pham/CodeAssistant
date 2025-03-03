@@ -1,6 +1,5 @@
 import openai
 from fastapi import BackgroundTasks
-from sqlmodel import Session
 
 from backend.LLM_Bundle.Azure_LLM import AzureOpenAIConfig
 from backend.db.models.memory import AgentMemory
@@ -14,6 +13,7 @@ client = openai.AzureOpenAI(
     api_version=config.api_version,
     azure_endpoint=config.endpoint
 )
+
 
 class PatternExtractor:
     def __init__(self):

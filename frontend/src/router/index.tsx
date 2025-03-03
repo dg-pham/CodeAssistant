@@ -13,6 +13,9 @@ const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
+const GitMergePage = lazy(() => import('@/pages/git/GitMergePage'));
+const OrchestrationPage = lazy(() => import('@/pages/orchestration/OrchestrationPage'));
+
 
 // Loading component for suspense fallback
 const Loading = () => (
@@ -97,6 +100,38 @@ const AppRouter = () => {
             element={
               <PrivateRoute>
                 <SettingsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/git-merge"
+            element={
+              <PrivateRoute>
+                <GitMergePage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/git-merge/:sessionId"
+            element={
+              <PrivateRoute>
+                <GitMergePage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/orchestration"
+            element={
+              <PrivateRoute>
+                <OrchestrationPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/orchestration/:taskId"
+            element={
+              <PrivateRoute>
+                <OrchestrationPage />
               </PrivateRoute>
             }
           />

@@ -253,3 +253,5 @@ fabric.properties
 
 node_modules
 backend.log
+code_agent.db
+package-lock.json

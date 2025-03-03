@@ -3,6 +3,8 @@ import conversationService, { messageService } from './conversationService';
 import codeService from './codeService';
 import feedbackService from './feedbackService';
 import memoryService from './memoryService';
+import gitMergeService from './gitMergeService';
+import orchestrationService from './orchestrationService';
 
 export {
   userService,
@@ -10,5 +12,7 @@ export {
   messageService,
   codeService,
   feedbackService,
-  memoryService
+  memoryService,
+  gitMergeService,
+  orchestrationService
 };

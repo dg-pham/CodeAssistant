@@ -1,4 +1,3 @@
-# backend/schemas/__init__.py
 from typing import TYPE_CHECKING, List
 
 from backend.schemas.user import UserCreate, UserResponse
@@ -8,6 +7,16 @@ from backend.schemas.code_request import CodeRequest
 from backend.schemas.code_response import CodeResponse
 from backend.schemas.code_snippet import CodeSnippetCreate, CodeSnippetResponse
 from backend.schemas.memory import MemoryCreate, MemoryResponse
+from backend.schemas.git_merge import (
+    GitMergeSessionCreate, GitMergeSessionResponse,
+    GitMergeConflictCreate, GitMergeConflictResponse,
+    AnalyzeConflictRequest, ResolveConflictRequest, CompleteMergeRequest
+)
+from backend.schemas.agent_orchestration import (
+    AgentOrchestrationTaskCreate, AgentOrchestrationTaskResponse,
+    AgentTaskResultCreate, AgentTaskResultResponse,
+    StartOrchestrationRequest, NextAgentRequest, AbortTaskRequest
+)
 from backend.schemas.common import (
     PaginationParams, PaginatedResponse,
     SuccessResponse, ErrorResponse
