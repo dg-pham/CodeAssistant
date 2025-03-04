@@ -99,6 +99,7 @@ const Header: React.FC = () => {
           <MenuItem onClick={() => handleNavigate('/settings')}>Settings</MenuItem>
           <MenuItem onClick={() => handleNavigate('/git-merge')}>Git Merge Assistant</MenuItem>
           <MenuItem onClick={() => handleNavigate('/orchestration')}>Agent Orchestration</MenuItem>
+          <MenuItem onClick={() => handleNavigate('/workflow')}>Workflow Builder</MenuItem>
         </Menu>
 
         {currentUser ? (

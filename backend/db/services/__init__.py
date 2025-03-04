@@ -6,3 +6,4 @@ from backend.db.services.feedback import FeedbackService
 from backend.db.services.memory import AgentMemoryService
 from backend.db.services.git_merge import GitMergeService
 from backend.db.services.agent_orchestration import AgentOrchestrationService
+from backend.db.services.workflow import WorkflowService

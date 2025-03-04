@@ -17,3 +17,4 @@ class User(SQLModel, table=True):
     memories: List["AgentMemory"] = Relationship(back_populates="user")
     git_merge_sessions: List["GitMergeSession"] = Relationship(back_populates="user")
     orchestration_tasks: List["AgentOrchestrationTask"] = Relationship(back_populates="user")
+    workflows: List["Workflow"] = Relationship(back_populates="user")

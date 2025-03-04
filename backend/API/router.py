@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 
 from backend.API import health
-from backend.API.endpoints import ai, conversation, feedback, user, code_snippet, memory, git_merge, agent_orchestration
+from backend.API.endpoints import ai, conversation, feedback, user, code_snippet, memory, git_merge, \
+    agent_orchestration, workflow
 
 router = APIRouter()
 
@@ -43,6 +44,11 @@ router.include_router(
 router.include_router(
     agent_orchestration.router,
     tags=['Agent Orchestration']
+)
+
+router.include_router(
+    workflow.router,
+    tags=['Workflow']
 )
 
 router.include_router(

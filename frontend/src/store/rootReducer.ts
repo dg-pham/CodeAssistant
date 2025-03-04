@@ -6,6 +6,7 @@ import feedbackReducer from './slices/feedbackSlice';
 import memoryReducer from './slices/memorySlice';
 import gitMergeReducer from './slices/gitMergeSlice';
 import orchestrationReducer from './slices/orchestrationSlice';
+import workflowReducer from './slices/workflowSlice';
 
 const rootReducer = combineReducers({
   user: userReducer,
@@ -15,6 +16,7 @@ const rootReducer = combineReducers({
   memory: memoryReducer,
   gitMerge: gitMergeReducer,
   orchestration: orchestrationReducer,
+  workflow: workflowReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;

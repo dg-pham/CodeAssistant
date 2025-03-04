@@ -27,10 +27,12 @@ import { useSelector } from 'react-redux';
 import { RootState, useAppDispatch } from '@/store/store';
 import { getUserConversations } from '@/store/slices/conversationSlice';
 import { getUserCodeSnippets } from '@/store/slices/codeSlice';
-import { getUserMergeSessions } from '@/store/slices/gitMergeSlice';   // Thêm mới
-import { getUserTasks } from '@/store/slices/orchestrationSlice';   // Thêm mới
+import { getUserMergeSessions } from '@/store/slices/gitMergeSlice';
+import { getUserTasks } from '@/store/slices/orchestrationSlice';
 import { getUserMemories } from '@/store/slices/memorySlice';
+import { getUserWorkflows } from '@/store/slices/workflowSlice';
 import { formatDate } from '@/utils/formatters';
+import { AccountTree as WorkflowIcon } from '@mui/icons-material';
 import Layout from '@/components/layout/Layout';
 
 const DashboardPage: React.FC = () => {
@@ -41,8 +43,9 @@ const DashboardPage: React.FC = () => {
   const { conversations, isLoading: conversationsLoading } = useSelector((state: RootState) => state.conversation);
   const { snippets, isLoading: snippetsLoading } = useSelector((state: RootState) => state.code);
   const { memories, isLoading: memoriesLoading } = useSelector((state: RootState) => state.memory);
-  const { sessions, isLoading: sessionsLoading } = useSelector((state: RootState) => state.gitMerge);   // Thêm mới
-  const { tasks, isLoading: tasksLoading } = useSelector((state: RootState) => state.orchestration);   // Thêm mới
+  const { sessions, isLoading: sessionsLoading } = useSelector((state: RootState) => state.gitMerge);
+  const { tasks, isLoading: tasksLoading } = useSelector((state: RootState) => state.orchestration);
+  const { workflows, isLoading: workflowsLoading } = useSelector((state: RootState) => state.workflow);
 
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -57,8 +60,9 @@ const DashboardPage: React.FC = () => {
       dispatch(getUserConversations(currentUser.id));
       dispatch(getUserCodeSnippets({ userId: currentUser.id }));
       dispatch(getUserMemories({ userId: currentUser.id }));
-      dispatch(getUserMergeSessions(currentUser.id));      // Thêm mới
-      dispatch(getUserTasks(currentUser.id));              // Thêm mới
+      dispatch(getUserMergeSessions(currentUser.id));
+      dispatch(getUserTasks(currentUser.id));
+      dispatch(getUserWorkflows(currentUser.id));
     }
   }, [dispatch, currentUser]);
 
@@ -72,7 +76,13 @@ const DashboardPage: React.FC = () => {
     });
   }, [conversations, snippets, memories, sessions, tasks]);
 
-  const isLoading = conversationsLoading || snippetsLoading || memoriesLoading || sessionsLoading || tasksLoading;
+  const isLoading =
+      conversationsLoading ||
+      snippetsLoading ||
+      memoriesLoading ||
+      sessionsLoading ||
+      tasksLoading ||
+      workflowsLoading;
 
   const navigateTo = (path: string) => {
     navigate(path);
@@ -267,6 +277,40 @@ const DashboardPage: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={4} lg={2.4}>
+              <Card
+                variant="outlined"
+                sx={{
+                  height: '100%',
+                  borderLeft: `4px solid ${theme.palette.info.main}`,
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4],
+                  },
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <WorkflowIcon color="info" sx={{ mr: 1 }} />
+                    <Typography variant="h6" component="div">
+                      Workflows
+                    </Typography>
+                  </Box>
+                  <Typography variant="h3" component="div" sx={{ mb: 1 }}>
+                    {workflows ? workflows.length : 0}
+                  </Typography>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => navigateTo('/workflow')}
+                  >
+                    View All
+                  </Button>
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Recent Activity */}
@@ -594,23 +638,23 @@ const DashboardPage: React.FC = () => {
               </Grid>
 
               <Grid item xs={12} sm={6} md={3} lg={2}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={<HistoryIcon />}
-                  onClick={() => navigateTo('/settings')}
-                  sx={{
-                    py: 2,
-                    height: '100%',
-                    backgroundColor: theme.palette.grey[700],
-                    '&:hover': {
-                      backgroundColor: theme.palette.grey[800],
-                    },
-                  }}
-                >
-                  Settings
-                </Button>
-              </Grid>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<WorkflowIcon />}
+                    onClick={() => navigateTo('/workflow')}
+                    sx={{
+                      py: 2,
+                      height: '100%',
+                      backgroundColor: theme.palette.info.main,
+                      '&:hover': {
+                        backgroundColor: theme.palette.info.dark,
+                      },
+                    }}
+                  >
+                    Workflow Builder
+                  </Button>
+                </Grid>
             </Grid>
           </>
         )}

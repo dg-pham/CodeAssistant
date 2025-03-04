@@ -15,6 +15,7 @@ const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 const GitMergePage = lazy(() => import('@/pages/git/GitMergePage'));
 const OrchestrationPage = lazy(() => import('@/pages/orchestration/OrchestrationPage'));
+const WorkflowPage = lazy(() => import('@/pages/workflow/WorkflowPage'));
 
 
 // Loading component for suspense fallback
@@ -135,7 +136,22 @@ const AppRouter = () => {
               </PrivateRoute>
             }
           />
-
+          <Route
+            path="/workflow"
+            element={
+              <PrivateRoute>
+                <WorkflowPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/workflow/:workflowId"
+            element={
+              <PrivateRoute>
+                <WorkflowPage />
+              </PrivateRoute>
+            }
+          />
           {/* 404 - Not Found */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
