@@ -164,7 +164,12 @@ const workflowService = {
   getAvailableAgents: async (): Promise<{agents: Record<string, Agent>}> => {
     const response = await api.get<{agents: Record<string, Agent>}>('/workflow-agents');
     return response.data;
-  }
+  },
+
+  updateNodeConfig: async (nodeId: string, config: any): Promise<WorkflowNode> => {
+    const response = await api.patch<WorkflowNode>(`/nodes/${nodeId}/config`, { config });
+    return response.data;
+  },
 };
 
 export default workflowService;

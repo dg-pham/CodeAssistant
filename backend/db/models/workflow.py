@@ -21,7 +21,7 @@ class Workflow(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="workflows")
     nodes: List["WorkflowNode"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     edges: List["WorkflowEdge"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    executions: List["WorkflowExecution"] = Relationship(back_populates="workflow")
+    executions: List["WorkflowExecution"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 class WorkflowNode(SQLModel, table=True):
     """Model cho node trong workflow"""

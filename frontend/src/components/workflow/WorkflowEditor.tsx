@@ -1,3 +1,4 @@
+// src/components/workflow/WorkflowEditor.tsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import ReactFlow, {
   ReactFlowProvider,
@@ -8,7 +9,6 @@ import ReactFlow, {
   addEdge,
   Connection,
   Edge,
-  Node,
   useReactFlow,
   MarkerType,
   NodeChange,
@@ -19,6 +19,7 @@ import 'reactflow/dist/style.css';
 import { Box, Paper, Snackbar, Alert } from '@mui/material';
 import AgentNode from './AgentNode';
 import { WorkflowNode, WorkflowEdge } from '@/api/workflowService';
+import AgentConfigDialog from './AgentConfigDialog';
 
 interface WorkflowEditorProps {
   workflowId: string;
@@ -30,6 +31,8 @@ interface WorkflowEditorProps {
   onAddEdge: (sourceId: string, targetId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
   onNodePositionChange: (nodeId: string, position: { x: number, y: number }) => void;
+  onUpdateNodeConfig: (nodeId: string, config: any) => void;
+  isLoading?: boolean;
 }
 
 const nodeTypes: NodeTypes = {
@@ -58,7 +61,9 @@ const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
   onDeleteNode,
   onAddEdge,
   onDeleteEdge,
-  onNodePositionChange
+  onNodePositionChange,
+  onUpdateNodeConfig,
+  isLoading = false
 }) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const reactFlowInstance = useReactFlow();
@@ -67,6 +72,10 @@ const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+
+  // State for agent config dialog
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
 
   // Convert backend nodes to React Flow format
   useEffect(() => {
@@ -91,7 +100,8 @@ const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
             description: node.description || agentInfo.description,
             inputs: agentInfo.inputs,
             outputs: agentInfo.outputs,
-            onDelete: onDeleteNode
+            onDelete: onDeleteNode,
+            onConfigure: handleConfigureNode // Add configure handler
           }
         };
       });
@@ -124,6 +134,21 @@ const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
       setEdges([]);
     }
   }, [backendEdges]);
+
+  // Handler for configuring a node
+  const handleConfigureNode = (nodeId: string) => {
+    const node = backendNodes.find(n => n.id === nodeId);
+    if (node) {
+      setSelectedNode(node);
+      setConfigDialogOpen(true);
+    }
+  };
+
+  // Handler for saving node configuration
+  const handleSaveNodeConfig = (nodeId: string, config: any) => {
+    onUpdateNodeConfig(nodeId, config);
+    setConfigDialogOpen(false);
+  };
 
   // Handle node drag and drop from panel to canvas
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -171,7 +196,7 @@ const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
 
   // Handle node drag end (position update)
   const onNodeDragStop = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
+    (_event: React.MouseEvent, node: any) => {
       onNodePositionChange(node.id, node.position);
     },
     [onNodePositionChange]
@@ -213,6 +238,17 @@ const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
         <Background />
       </ReactFlow>
 
+      {/* Agent Configuration Dialog */}
+      <AgentConfigDialog
+        open={configDialogOpen}
+        onClose={() => setConfigDialogOpen(false)}
+        onSave={handleSaveNodeConfig}
+        node={selectedNode}
+        agentDetails={availableAgents}
+        isLoading={isLoading}
+      />
+
+      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}

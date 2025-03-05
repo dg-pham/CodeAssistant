@@ -320,8 +320,29 @@ const workflowSlice = createSlice({
       state.availableAgents = action.payload.agents;
     });
     builder.addCase(getAvailableAgents.rejected, setRejected);
+
+    builder.addCase(updateNodeConfig.pending, setPending);
+    builder.addCase(updateNodeConfig.fulfilled, (state, action) => {
+      state.isLoading = false;
+      const index = state.nodes.findIndex(node => node.id === action.payload.id);
+      if (index !== -1) {
+        state.nodes[index] = action.payload;
+      }
+    });
+    builder.addCase(updateNodeConfig.rejected, setRejected);
   }
 });
+
+export const updateNodeConfig = createAsyncThunk(
+  'workflow/updateNodeConfig',
+  async ({ nodeId, config }: { nodeId: string, config: any }, { rejectWithValue }) => {
+    try {
+      return await workflowService.updateNodeConfig(nodeId, config);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update node configuration');
+    }
+  }
+);
 
 export const { clearCurrentWorkflow, updateNodePosition } = workflowSlice.actions;
 export default workflowSlice.reducer;

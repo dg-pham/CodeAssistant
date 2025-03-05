@@ -1,19 +1,20 @@
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from sqlmodel import Session
-from sqlalchemy.exc import SQLAlchemyError
+from typing import List, Dict, Any
 
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import Session
+
+from backend.agent_managers.workflow_orchestrator import WorkflowOrchestrator
 from backend.db.base import get_session
 from backend.db.models.workflow import Workflow, WorkflowNode, WorkflowEdge
-from backend.db.services.workflow import WorkflowService
 from backend.db.services.user import UserService
-from backend.agent_managers.workflow_orchestrator import WorkflowOrchestrator
+from backend.db.services.workflow import WorkflowService
+from backend.log import logger
 from backend.schemas.workflow import (
     WorkflowCreate, WorkflowResponse, WorkflowNodeCreate,
     WorkflowNodeResponse, WorkflowEdgeCreate, WorkflowEdgeResponse,
     WorkflowExecutionCreate, WorkflowExecutionResponse
 )
-from backend.log import logger
 
 router = APIRouter()
 workflow_orchestrator = WorkflowOrchestrator()
@@ -436,4 +437,41 @@ async def get_available_agents():
 
     except Exception as e:
         logger.error(f"Error in get_available_agents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@router.patch("/nodes/{node_id}/config", response_model=WorkflowNodeResponse)
+async def update_node_config(
+        node_id: str,
+        data: Dict[str, Any],
+        session: Session = Depends(get_session)
+):
+    """Cập nhật cấu hình của node"""
+    try:
+        workflow_service = WorkflowService(session)
+
+        # Kiểm tra node tồn tại
+        node = workflow_service.get_node(node_id)
+        if not node:
+            raise HTTPException(status_code=404, detail="Node not found")
+
+        # Cập nhật config
+        updated_node = workflow_service.update_node(
+            node_id,
+            config=data.get("config", {})
+        )
+
+        if not updated_node:
+            raise HTTPException(status_code=500, detail="Failed to update node")
+
+        return updated_node
+
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in update_node_config: {str(e)}")
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database error occurred")
+    except Exception as e:
+        logger.error(f"Unexpected error in update_node_config: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")

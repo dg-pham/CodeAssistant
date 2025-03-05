@@ -1,7 +1,8 @@
+// src/components/workflow/AgentNode.tsx
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Box, Typography, Paper, Tooltip, IconButton } from '@mui/material';
-import { Delete as DeleteIcon, Info as InfoIcon, PlayArrow as RunIcon } from '@mui/icons-material';
+import { Box, Typography, Paper, Tooltip, IconButton, Button } from '@mui/material';
+import { Delete as DeleteIcon, Info as InfoIcon, PlayArrow as RunIcon, Settings as SettingsIcon } from '@mui/icons-material';
 
 interface AgentNodeProps extends NodeProps {
   data: {
@@ -13,6 +14,7 @@ interface AgentNodeProps extends NodeProps {
     outputs: string[];
     onDelete?: (id: string) => void;
     onRun?: (id: string) => void;
+    onConfigure?: (id: string) => void; // Thêm handler cho cấu hình
   };
 }
 
@@ -31,7 +33,7 @@ const getNodeStyle = (category: string) => {
 };
 
 const AgentNode = memo(({ id, data, selected }: AgentNodeProps) => {
-  const { label, nodeType, category, description, inputs, outputs, onDelete, onRun } = data;
+  const { label, nodeType, category, description, inputs, outputs, onDelete, onRun, onConfigure } = data;
   const style = getNodeStyle(category);
 
   return (
@@ -72,6 +74,20 @@ const AgentNode = memo(({ id, data, selected }: AgentNodeProps) => {
               <InfoIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          {/* Thêm nút cấu hình */}
+          {onConfigure && (
+            <Tooltip title="Cấu hình">
+              <IconButton
+                size="small"
+                sx={{ color: 'white' }}
+                onClick={() => onConfigure(id)}
+              >
+                <SettingsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
           {onDelete && (
             <Tooltip title="Delete">
               <IconButton size="small" sx={{ color: 'white' }} onClick={() => onDelete(id)}>

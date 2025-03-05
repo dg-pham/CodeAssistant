@@ -1,5 +1,12 @@
+// src/components/chat/MessageItem.tsx
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Avatar, IconButton, Tooltip, Rating, TextField, Button, Snackbar, Alert } from '@mui/material';
+import {
+  Box, Typography, Paper, Avatar, IconButton, Tooltip, Rating, TextField,
+  Button, Snackbar, Alert, Accordion, AccordionSummary, AccordionDetails, Chip
+} from '@mui/material';
+import { 
+  ContentCopy, ThumbUp, ThumbDown, Code, ExpandMore as ExpandMoreIcon 
+} from '@mui/icons-material';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState, useAppDispatch } from '@/store/store';
@@ -8,7 +15,6 @@ import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ContentCopy, ThumbUp, ThumbDown, Code } from '@mui/icons-material';
 import { submitFeedback } from '@/store/slices/feedbackSlice';
 import { setCurrentCode, setLanguage } from '@/store/slices/codeSlice';
 import { feedbackService } from '@/api';
@@ -29,6 +35,23 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [existingFeedback, setExistingFeedback] = useState<any>(null);
+  
+  // Check if message is workflow result
+  const isWorkflowResult = message.meta?.type === 'workflow_result';
+
+  // Get status color function
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'success';
+      case 'failed':
+        return 'error';
+      case 'in_progress':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
 
   // Debug log when component renders
   useEffect(() => {
@@ -202,15 +225,108 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         </Box>
 
         <Box>
-          <ReactMarkdown
-            components={{
-              code({ node, inline, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                const code = String(children).replace(/\n$/, '');
+          {isWorkflowResult ? (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                Workflow: {message.meta.workflowName}
+              </Typography>
+              
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography>Kết quả workflow</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Paper 
+                    variant="outlined" 
+                    sx={{ 
+                      p: 2, 
+                      borderRadius: 1, 
+                      backgroundColor: 'background.paper',
+                      '& pre': {
+                        margin: 0,
+                        overflow: 'auto',
+                        fontSize: '0.85rem'
+                      }
+                    }}
+                  >
+                    <ReactMarkdown>
+                      {message.content}
+                    </ReactMarkdown>
+                  </Paper>
+                  
+                  <Box sx={{ mt: 2 }}>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={() => navigate(`/workflow/${message.meta.workflowId}`)}
+                    >
+                      Xem chi tiết workflow
+                    </Button>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            </Box>
+          ) : (
+            <ReactMarkdown
+              components={{
+                code({ node, inline, className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const code = String(children).replace(/\n$/, '');
 
-                if (!inline && match) {
-                  const language = getLanguageFromFence(match[1]);
-                  return (
+                  if (!inline && match) {
+                    const language = getLanguageFromFence(match[1]);
+                    return (
+                      <Box sx={{ position: 'relative', mb: 2 }}>
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            right: 0,
+                            zIndex: 1,
+                            p: 0.5,
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            borderRadius: '0 0 0 4px',
+                            display: 'flex'
+                          }}
+                        >
+                          <Tooltip title="Copy code">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleCopyCode(code, language)}
+                              sx={{ color: 'white' }}
+                            >
+                              <ContentCopy fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Load to editor">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleLoadCodeToEditor(code, language)}
+                              sx={{ color: 'white' }}
+                            >
+                              <Code fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                        <SyntaxHighlighter
+                          style={vscDarkPlus}
+                          language={language || 'text'}
+                          PreTag="div"
+                          wrapLines
+                          wrapLongLines
+                          {...props}
+                        >
+                          {code}
+                        </SyntaxHighlighter>
+                      </Box>
+                    );
+                  }
+
+                  return inline ? (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  ) : (
                     <Box sx={{ position: 'relative', mb: 2 }}>
                       <Box
                         sx={{
@@ -220,32 +336,22 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                           zIndex: 1,
                           p: 0.5,
                           backgroundColor: 'rgba(0,0,0,0.6)',
-                          borderRadius: '0 0 0 4px',
-                          display: 'flex'
+                          borderRadius: '0 0 0 4px'
                         }}
                       >
                         <Tooltip title="Copy code">
                           <IconButton
                             size="small"
-                            onClick={() => handleCopyCode(code, language)}
+                            onClick={() => handleCopyCode(code)}
                             sx={{ color: 'white' }}
                           >
                             <ContentCopy fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Load to editor">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleLoadCodeToEditor(code, language)}
-                            sx={{ color: 'white' }}
-                          >
-                            <Code fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
                       </Box>
                       <SyntaxHighlighter
                         style={vscDarkPlus}
-                        language={language || 'text'}
+                        language="text"
                         PreTag="div"
                         wrapLines
                         wrapLongLines
@@ -255,52 +361,12 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                       </SyntaxHighlighter>
                     </Box>
                   );
-                }
-
-                return inline ? (
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                ) : (
-                  <Box sx={{ position: 'relative', mb: 2 }}>
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        zIndex: 1,
-                        p: 0.5,
-                        backgroundColor: 'rgba(0,0,0,0.6)',
-                        borderRadius: '0 0 0 4px'
-                      }}
-                    >
-                      <Tooltip title="Copy code">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleCopyCode(code)}
-                          sx={{ color: 'white' }}
-                        >
-                          <ContentCopy fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                    <SyntaxHighlighter
-                      style={vscDarkPlus}
-                      language="text"
-                      PreTag="div"
-                      wrapLines
-                      wrapLongLines
-                      {...props}
-                    >
-                      {code}
-                    </SyntaxHighlighter>
-                  </Box>
-                );
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+                },
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          )}
         </Box>
 
         {!isUserMessage && !showFeedback && (

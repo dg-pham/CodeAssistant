@@ -1,3 +1,4 @@
+// src/pages/workflow/WorkflowPage.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box,
@@ -32,7 +33,8 @@ import {
   getAvailableAgents,
   updateNodePosition,
   executeWorkflow,
-  getWorkflowExecution
+  getWorkflowExecution,
+  updateNodeConfig
 } from '@/store/slices/workflowSlice';
 import Layout from '@/components/layout/Layout';
 import {
@@ -43,6 +45,7 @@ import {
   CreateWorkflowDialog
 } from '@/components/workflow';
 import { Workflow, CreateWorkflowRequest } from '@/api/workflowService';
+import WorkflowInputDialog from '@/components/workflow/WorkflowInputDialog';
 
 const WorkflowPage: React.FC = () => {
   const { workflowId } = useParams<{ workflowId?: string }>();
@@ -66,6 +69,10 @@ const WorkflowPage: React.FC = () => {
   const [activeExecution, setActiveExecution] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
+
+  // State for run workflow dialog
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
+  const [selectedWorkflowForRun, setSelectedWorkflowForRun] = useState<Workflow | null>(null);
 
   // Load user's workflows
   useEffect(() => {
@@ -185,15 +192,31 @@ const WorkflowPage: React.FC = () => {
   };
 
   // Handle running a workflow
-  const handleRunWorkflow = async (workflowId: string = currentWorkflow?.id || '') => {
-    if (!workflowId || !currentUser) return;
+  const handleRunWorkflow = (workflowId: string = currentWorkflow?.id || '') => {
+    if (!workflowId) return;
+
+    const workflow = workflows.find(w => w.id === workflowId) || currentWorkflow;
+    if (workflow) {
+      setSelectedWorkflowForRun(workflow);
+      setRunDialogOpen(true);
+    }
+  };
+
+  // Handle updating node config
+  const handleUpdateNodeConfig = (nodeId: string, config: any) => {
+    dispatch(updateNodeConfig({ nodeId, config }));
+  };
+
+  // Handle running workflow with input
+  const handleRunWorkflowWithInput = async (inputData: any) => {
+    if (!selectedWorkflowForRun || !currentUser) return;
 
     try {
       const result = await dispatch(executeWorkflow({
-        workflowId,
+        workflowId: selectedWorkflowForRun.id,
         data: {
           user_id: currentUser.id,
-          input_data: {}
+          input_data: inputData
         }
       })).unwrap();
 
@@ -203,6 +226,8 @@ const WorkflowPage: React.FC = () => {
         setActiveExecution(result.execution_id);
         setDrawerOpen(true);
       }
+
+      setRunDialogOpen(false);
     } catch (error) {
       console.error('Failed to run workflow:', error);
     }
@@ -327,6 +352,8 @@ const WorkflowPage: React.FC = () => {
                     onAddEdge={handleAddEdge}
                     onDeleteEdge={handleDeleteEdge}
                     onNodePositionChange={handleNodePositionChange}
+                    onUpdateNodeConfig={handleUpdateNodeConfig}
+                    isLoading={isLoading}
                   />
                 </Box>
               </>
@@ -360,6 +387,15 @@ const WorkflowPage: React.FC = () => {
             )}
           </Grid>
         </Grid>
+
+        {/* Run Workflow Dialog */}
+        <WorkflowInputDialog
+          open={runDialogOpen}
+          onClose={() => setRunDialogOpen(false)}
+          onSubmit={handleRunWorkflowWithInput}
+          workflow={selectedWorkflowForRun}
+          isLoading={isLoading}
+        />
 
         {/* Execution Drawer */}
         <Drawer
