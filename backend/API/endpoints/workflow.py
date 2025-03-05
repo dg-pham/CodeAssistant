@@ -438,3 +438,40 @@ async def get_available_agents():
     except Exception as e:
         logger.error(f"Error in get_available_agents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@router.patch("/nodes/{node_id}/config", response_model=WorkflowNodeResponse)
+async def update_node_config(
+        node_id: str,
+        data: Dict[str, Any],
+        session: Session = Depends(get_session)
+):
+    """Cập nhật cấu hình của node"""
+    try:
+        workflow_service = WorkflowService(session)
+
+        # Kiểm tra node tồn tại
+        node = workflow_service.get_node(node_id)
+        if not node:
+            raise HTTPException(status_code=404, detail="Node not found")
+
+        # Cập nhật config
+        updated_node = workflow_service.update_node(
+            node_id,
+            config=data.get("config", {})
+        )
+
+        if not updated_node:
+            raise HTTPException(status_code=500, detail="Failed to update node")
+
+        return updated_node
+
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in update_node_config: {str(e)}")
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database error occurred")
+    except Exception as e:
+        logger.error(f"Unexpected error in update_node_config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
