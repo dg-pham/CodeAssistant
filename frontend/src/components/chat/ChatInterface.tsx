@@ -327,7 +327,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
           }
         }
 
-        setRunDialogOpen(false);
+        setRunWorkflowDialogOpen(false);
       } catch (err: any) {
         setError(err.message || 'Failed to execute workflow');
 

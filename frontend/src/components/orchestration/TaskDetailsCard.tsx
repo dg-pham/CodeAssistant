@@ -27,6 +27,34 @@ interface TaskDetailsCardProps {
   isLoading: boolean;
 }
 
+// Function to get a better result label based on agent type
+const getResultLabel = (agentType: string) => {
+  switch (agentType) {
+    case 'requirements_analyzer':
+      return 'Requirements Analysis';
+    case 'code_generator':
+      return 'Generated Code';
+    case 'code_optimizer':
+      return 'Optimized Code';
+    case 'code_analyzer':
+      return 'Code Analysis';
+    case 'performance_optimizer':
+      return 'Performance Recommendations';
+    case 'quality_checker':
+      return 'Quality Assessment';
+    case 'language_translator':
+      return 'Translated Code';
+    case 'git_analyzer':
+      return 'Repository Analysis';
+    case 'conflict_resolver':
+      return 'Conflict Resolution';
+    case 'code_understander':
+      return 'Code Understanding';
+    default:
+      return 'Analysis Result';
+  }
+};
+
 // Component mới để hiển thị kết quả của agent
 const AgentResultDisplay = ({ result }: { result: any }) => {
   // Kiểm tra xem có phải kết quả code_generator không
@@ -37,19 +65,26 @@ const AgentResultDisplay = ({ result }: { result: any }) => {
   let codeSnippet = '';
   let language = 'python'; // Mặc định
 
+  // Try to extract code blocks from results
+  const extractCodeBlock = (text: string) => {
+    if (!text) return '';
+    const codeMatch = text.match(/```(\w+)?\s+([\s\S]+?)\s+```/);
+    return {
+      language: codeMatch?.[1] || 'python',
+      code: codeMatch?.[2] || ''
+    };
+  };
+
+  let codeInfo = { language: 'python', code: '' };
+
   if (isCodeGenerator && result.result_data.generated_code) {
-    // Trích xuất code từ generated_code (tìm phần trong ```python ... ```)
-    const codeMatch = result.result_data.generated_code.match(/```python\s+([\s\S]+?)\s+```/);
-    if (codeMatch && codeMatch[1]) {
-      codeSnippet = codeMatch[1];
-    }
+    codeInfo = extractCodeBlock(result.result_data.generated_code);
   } else if (isCodeOptimizer && result.result_data.optimized_code) {
-    // Trích xuất code từ optimized_code nếu có
-    const codeMatch = result.result_data.optimized_code.match(/```python\s+([\s\S]+?)\s+```/);
-    if (codeMatch && codeMatch[1]) {
-      codeSnippet = codeMatch[1];
-    }
+    codeInfo = extractCodeBlock(result.result_data.optimized_code);
   }
+
+  // Replace "result_text" with a better label
+  const resultTextLabel = getResultLabel(result.agent_type);
 
   // Hiển thị khác nhau tùy theo loại agent
   return (
@@ -75,24 +110,50 @@ const AgentResultDisplay = ({ result }: { result: any }) => {
       )}
 
       {/* Code Display */}
-      {codeSnippet && (
+      {codeInfo.code && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" sx={{ mb: 1 }}>
-            <strong>Generated Code:</strong>
+            <strong>{isCodeGenerator ? 'Generated Code' : 'Optimized Code'}:</strong>
           </Typography>
-          <SyntaxHighlighter language={language} style={vscDarkPlus}>
-            {codeSnippet}
+          <SyntaxHighlighter language={codeInfo.language} style={vscDarkPlus}>
+            {codeInfo.code}
           </SyntaxHighlighter>
         </Box>
       )}
 
-      {/* Thông tin khác (nếu không có code) */}
-      {!codeSnippet && (
+      {/* Result Text (with better label) */}
+      {result.result_data.result_text && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            <strong>{resultTextLabel}:</strong>
+          </Typography>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            {result.result_data.result_text}
+          </Typography>
+
+          {/* Render any code blocks within result_text */}
+          {result.result_data.result_text.includes('```') && (
+            <Box sx={{ mt: 2 }}>
+              {result.result_data.result_text.match(/```(\w+)?\s+([\s\S]+?)\s+```/g)?.map((codeBlock, index) => {
+                const extracted = extractCodeBlock(codeBlock);
+                return extracted.code ? (
+                  <Box key={index} sx={{ my: 2 }}>
+                    <SyntaxHighlighter language={extracted.language} style={vscDarkPlus}>
+                      {extracted.code}
+                    </SyntaxHighlighter>
+                  </Box>
+                ) : null;
+              })}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Thông tin khác (nếu không có code và result_text) */}
+      {!codeInfo.code && !result.result_data.result_text && !result.result_data.generated_code && !result.result_data.optimized_code && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {isCodeGenerator ? result.result_data.generated_code :
-             isCodeOptimizer ? result.result_data.optimized_code :
-             JSON.stringify(result.result_data, null, 2)}
+            {JSON.stringify(result.result_data, null, 2)}
           </Typography>
         </Box>
       )}
