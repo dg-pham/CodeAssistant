@@ -1,5 +1,14 @@
+// src/components/chat/MessageItem.tsx
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Avatar, IconButton, Tooltip, Rating, TextField, Button, Snackbar, Alert } from '@mui/material';
+import {
+  Box, Typography, Paper, Avatar, IconButton, Tooltip, Rating, TextField,
+  Button, Snackbar, Alert, Accordion, AccordionSummary, AccordionDetails, Chip,
+  List, ListItem, ListItemText, Divider, Card, CardContent
+} from '@mui/material';
+import {
+  ContentCopy, ThumbUp, ThumbDown, Code, ExpandMore as ExpandMoreIcon,
+  Launch as LaunchIcon
+} from '@mui/icons-material';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { RootState, useAppDispatch } from '@/store/store';
@@ -8,16 +17,188 @@ import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ContentCopy, ThumbUp, ThumbDown, Code } from '@mui/icons-material';
 import { submitFeedback } from '@/store/slices/feedbackSlice';
 import { setCurrentCode, setLanguage } from '@/store/slices/codeSlice';
 import { feedbackService } from '@/api';
 
+// Component hiển thị kết quả workflow theo dạng thân thiện
+const WorkflowResultContent = ({ content, meta }) => {
+  // Parse content từ markdown có chứa JSON
+  const jsonMatch = content.match(/```json\n([\s\S]+?)\n```/);
+  let jsonData = null;
+
+  try {
+    if (jsonMatch && jsonMatch[1]) {
+      jsonData = JSON.parse(jsonMatch[1]);
+    }
+  } catch (e) {
+    console.error("Failed to parse JSON from workflow result", e);
+  }
+
+  // Phân tích nội dung để tìm các code blocks
+  const extractCodeBlocks = (content) => {
+    // Regex để tìm code blocks
+    const regex = /```(\w+)?\n([\s\S]+?)\n```/g;
+    const codeBlocks = [];
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      codeBlocks.push({
+        language: match[1] || 'text',
+        code: match[2]
+      });
+    }
+
+    return codeBlocks;
+  };
+
+  const codeBlocks = extractCodeBlocks(content);
+
+  if (jsonData) {
+    return (
+      <Box sx={{ mt: 2 }}>
+        {Object.entries(jsonData).map(([key, value]) => {
+          // Bỏ qua một số trường không cần hiển thị
+          if (key === 'status' || key === 'message') return null;
+
+          return (
+            <Box key={key} sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                {key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}
+              </Typography>
+
+              {typeof value === 'string' ? (
+                <Typography variant="body2">{value}</Typography>
+              ) : Array.isArray(value) ? (
+                <Box component="ul" sx={{ pl: 2 }}>
+                  {value.map((item, index) => (
+                    <Typography component="li" key={index} variant="body2">
+                      {typeof item === 'string' ? item : JSON.stringify(item)}
+                    </Typography>
+                  ))}
+                </Box>
+              ) : typeof value === 'object' && value !== null ? (
+                <Card variant="outlined" sx={{ mb: 1, backgroundColor: 'background.paper' }}>
+                  <CardContent sx={{ '&:last-child': { pb: 2 }, py: 1 }}>
+                    {Object.entries(value).map(([innerKey, innerValue]) => (
+                      <Box key={innerKey} sx={{ mb: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                          {innerKey.charAt(0).toUpperCase() + innerKey.slice(1).replace(/_/g, ' ')}:
+                        </Typography>
+                        {typeof innerValue === 'string' ? (
+                          innerKey === 'implementation' || innerKey === 'code' ? (
+                            <Box sx={{ position: 'relative', my: 1 }}>
+                              <SyntaxHighlighter
+                                language="javascript"
+                                style={vscDarkPlus}
+                                customStyle={{ fontSize: '0.85rem' }}
+                                showLineNumbers={true}
+                              >
+                                {innerValue}
+                              </SyntaxHighlighter>
+                            </Box>
+                          ) : (
+                            <Typography variant="body2">{innerValue}</Typography>
+                          )
+                        ) : (
+                          <Typography variant="body2">{JSON.stringify(innerValue, null, 2)}</Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Typography variant="body2">{String(value)}</Typography>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
+  // Hiển thị codeBlocks nếu có
+  if (codeBlocks.length > 0) {
+    return (
+      <Box>
+        <ReactMarkdown
+          components={{
+            code({ node, inline, className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              const code = String(children).replace(/\n$/, '');
+
+              if (!inline && match) {
+                return (
+                  <Box sx={{ position: 'relative', mb: 2 }}>
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        zIndex: 1,
+                        p: 0.5,
+                        backgroundColor: 'rgba(0,0,0,0.6)',
+                        borderRadius: '0 0 0 4px',
+                        display: 'flex'
+                      }}
+                    >
+                      <Tooltip title="Copy code">
+                        <IconButton
+                          size="small"
+                          onClick={() => navigator.clipboard.writeText(code)}
+                          sx={{ color: 'white' }}
+                        >
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                    <SyntaxHighlighter
+                      style={vscDarkPlus}
+                      language={match[1]}
+                      PreTag="div"
+                      showLineNumbers={true}
+                      wrapLines
+                      wrapLongLines
+                      customStyle={{
+                        margin: '0',
+                        borderRadius: '4px',
+                        fontSize: '13px'
+                      }}
+                      {...props}
+                    >
+                      {code}
+                    </SyntaxHighlighter>
+                  </Box>
+                );
+              }
+              return (
+                <code className={className} {...props}>
+                  {children}
+                </code>
+              );
+            }
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      </Box>
+    );
+  }
+
+  // Fallback khi không thể parse JSON hoặc hiển thị code
+  return (
+    <Typography variant="body1">
+      {content}
+    </Typography>
+  );
+};
+
 interface MessageItemProps {
   message: Message;
+  isStreaming?: boolean;
 }
 
-const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, isStreaming = false }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { currentUser } = useSelector((state: RootState) => state.user);
@@ -30,10 +211,80 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [existingFeedback, setExistingFeedback] = useState<any>(null);
 
+  // Check if message is workflow result
+  const isWorkflowResult = message.meta?.type === 'workflow_result';
+
+  // Get status color function
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'success';
+      case 'failed':
+        return 'error';
+      case 'in_progress':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
   // Debug log when component renders
   useEffect(() => {
-    console.log('MessageItem rendered:', { messageId: message.id, role: message.role });
+    console.log('MessageItem rendered:', { messageId: message.id, role: message.role, meta: message.meta });
   }, [message]);
+
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .typing-indicator {
+        display: inline-block;
+        position: relative;
+        width: 16px;
+        height: 16px;
+      }
+      .typing-indicator::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 100%;
+        width: 3px;
+        background-color: #3f51b5;
+        animation: blink 1s infinite;
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Hiển thị nội dung với streaming indicator
+  const renderContent = () => {
+    if (isWorkflowResult) {
+      return <WorkflowResultContent content={message.content} meta={message.meta} />;
+    } else {
+      return (
+        <Box>
+          <CodeContentRenderer
+            content={message.content}
+            onCopyCode={handleCopyCode}
+            onLoadToEditor={handleLoadCodeToEditor}
+          />
+          {isStreaming && (
+            <Box sx={{ display: 'inline-block', ml: 1 }}>
+              <span className="typing-indicator"></span>
+            </Box>
+          )}
+        </Box>
+      );
+    }
+  };
 
   const handleCopyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -144,6 +395,138 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const avatarColor = isUserMessage ? 'primary.main' : 'secondary.main';
   const avatarLetter = isUserMessage ? (currentUser?.name?.charAt(0) || 'U') : 'A';
 
+  const CodeContentRenderer = ({ content, onCopyCode, onLoadToEditor }) => {
+      return (
+        <ReactMarkdown
+          components={{
+            code({ node, inline, className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              const code = String(children).replace(/\n$/, '');
+
+              // Xác định ngôn ngữ: từ class hoặc tự động đoán
+              let language = match ? match[1] : '';
+
+              // Tự động phát hiện ngôn ngữ nếu không có chỉ định
+              if (!language && code.length > 0) {
+                // Đơn giản hóa: kiểm tra một số từ khóa phổ biến
+                if (code.includes('def ') || code.includes('import ') && code.includes(':')) {
+                  language = 'python';
+                } else if (code.includes('function') || code.includes('const ') || code.includes('let ')) {
+                  language = 'javascript';
+                } else if (code.includes('public class') || code.includes('private ')) {
+                  language = 'java';
+                }
+              }
+
+              if (!inline) {
+                return (
+                  <Box sx={{ position: 'relative', mb: 2 }}>
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        zIndex: 1,
+                        p: 0.5,
+                        backgroundColor: 'rgba(0,0,0,0.6)',
+                        borderRadius: '0 0 0 4px',
+                        display: 'flex'
+                      }}
+                    >
+                      <Tooltip title="Copy code">
+                        <IconButton
+                          size="small"
+                          onClick={() => onCopyCode(code, language)}
+                          sx={{ color: 'white' }}
+                        >
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Load to editor">
+                        <IconButton
+                          size="small"
+                          onClick={() => onLoadToEditor(code, language)}
+                          sx={{ color: 'white' }}
+                        >
+                          <Code fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                    <SyntaxHighlighter
+                      style={vscDarkPlus}
+                      language={language || 'text'}
+                      PreTag="div"
+                      showLineNumbers={true}
+                      wrapLines
+                      wrapLongLines
+                      customStyle={{
+                        margin: '0',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        padding: '16px',
+                      }}
+                      {...props}
+                    >
+                      {code}
+                    </SyntaxHighlighter>
+                  </Box>
+                );
+              }
+
+              return inline ? (
+                <code className={className} {...props} style={{ backgroundColor: '#1e1e1e', color: '#d4d4d4', padding: '2px 4px', borderRadius: '3px' }}>
+                  {children}
+                </code>
+              ) : (
+                <Box sx={{ position: 'relative', mb: 2 }}>
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      zIndex: 1,
+                      p: 0.5,
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      borderRadius: '0 0 0 4px'
+                    }}
+                  >
+                    <Tooltip title="Copy code">
+                      <IconButton
+                        size="small"
+                        onClick={() => onCopyCode(code)}
+                        sx={{ color: 'white' }}
+                      >
+                        <ContentCopy fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language="text"
+                    PreTag="div"
+                    showLineNumbers={true}
+                    wrapLines
+                    wrapLongLines
+                    customStyle={{
+                      margin: '0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      padding: '16px',
+                    }}
+                    {...props}
+                  >
+                    {code}
+                  </SyntaxHighlighter>
+                </Box>
+              );
+            }
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      );
+    };
+
   return (
     <Box
       sx={{
@@ -202,105 +585,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         </Box>
 
         <Box>
-          <ReactMarkdown
-            components={{
-              code({ node, inline, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                const code = String(children).replace(/\n$/, '');
-
-                if (!inline && match) {
-                  const language = getLanguageFromFence(match[1]);
-                  return (
-                    <Box sx={{ position: 'relative', mb: 2 }}>
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 0,
-                          right: 0,
-                          zIndex: 1,
-                          p: 0.5,
-                          backgroundColor: 'rgba(0,0,0,0.6)',
-                          borderRadius: '0 0 0 4px',
-                          display: 'flex'
-                        }}
-                      >
-                        <Tooltip title="Copy code">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleCopyCode(code, language)}
-                            sx={{ color: 'white' }}
-                          >
-                            <ContentCopy fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Load to editor">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleLoadCodeToEditor(code, language)}
-                            sx={{ color: 'white' }}
-                          >
-                            <Code fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                      <SyntaxHighlighter
-                        style={vscDarkPlus}
-                        language={language || 'text'}
-                        PreTag="div"
-                        wrapLines
-                        wrapLongLines
-                        {...props}
-                      >
-                        {code}
-                      </SyntaxHighlighter>
-                    </Box>
-                  );
-                }
-
-                return inline ? (
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                ) : (
-                  <Box sx={{ position: 'relative', mb: 2 }}>
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        zIndex: 1,
-                        p: 0.5,
-                        backgroundColor: 'rgba(0,0,0,0.6)',
-                        borderRadius: '0 0 0 4px'
-                      }}
-                    >
-                      <Tooltip title="Copy code">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleCopyCode(code)}
-                          sx={{ color: 'white' }}
-                        >
-                          <ContentCopy fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                    <SyntaxHighlighter
-                      style={vscDarkPlus}
-                      language="text"
-                      PreTag="div"
-                      wrapLines
-                      wrapLongLines
-                      {...props}
-                    >
-                      {code}
-                    </SyntaxHighlighter>
-                  </Box>
-                );
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+          {renderContent()}
         </Box>
 
         {!isUserMessage && !showFeedback && (

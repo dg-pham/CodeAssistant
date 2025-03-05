@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlmodel import Session
 
-from backend.db.base import get_session
 from backend.ai import process_code_request
+from backend.db.base import get_session
 from backend.schemas.code_request import CodeRequest
 from backend.schemas.code_response import CodeResponse
 
@@ -27,8 +27,10 @@ async def generate_code(request_data: CodeRequest, background_tasks: BackgroundT
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating code: {str(e)}")
 
+
 @router.post("/code/optimize", response_model=CodeResponse)
-async def optimize_code(request_data: CodeRequest, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def optimize_code(request_data: CodeRequest, background_tasks: BackgroundTasks,
+                        session: Session = Depends(get_session)):
     """Tối ưu hóa mã hiện có"""
     try:
         if not request_data.description:
@@ -44,8 +46,10 @@ async def optimize_code(request_data: CodeRequest, background_tasks: BackgroundT
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error optimizing code: {str(e)}")
 
+
 @router.post("/code/translate", response_model=CodeResponse)
-async def translate_code(request_data: CodeRequest, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def translate_code(request_data: CodeRequest, background_tasks: BackgroundTasks,
+                         session: Session = Depends(get_session)):
     """Dịch mã từ ngôn ngữ nguồn sang ngôn ngữ đích"""
     try:
         if not request_data.description:
@@ -61,8 +65,10 @@ async def translate_code(request_data: CodeRequest, background_tasks: Background
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error translating code: {str(e)}")
 
+
 @router.post("/code/explain", response_model=CodeResponse)
-async def explain_code(request_data: CodeRequest, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def explain_code(request_data: CodeRequest, background_tasks: BackgroundTasks,
+                       session: Session = Depends(get_session)):
     """Giải thích chi tiết mã"""
     try:
         if not request_data.description:
@@ -80,7 +86,8 @@ async def explain_code(request_data: CodeRequest, background_tasks: BackgroundTa
 
 
 @router.post("/code", response_model=CodeResponse)
-async def process_code(request_data: CodeRequest, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def process_code(request_data: CodeRequest, background_tasks: BackgroundTasks,
+                       session: Session = Depends(get_session)):
     """Xử lý yêu cầu mã dựa trên hành động được chỉ định"""
     try:
         if request_data.action not in ["generate", "optimize", "translate", "explain"]:

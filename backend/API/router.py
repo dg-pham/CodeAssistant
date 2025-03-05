@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from backend.API import health
 from backend.API.endpoints import ai, conversation, feedback, user, code_snippet, memory, git_merge, \
-    agent_orchestration, workflow
+    agent_orchestration, workflow, message
 
 router = APIRouter()
 
@@ -14,6 +14,11 @@ router.include_router(
 router.include_router(
     conversation.router,
     tags=['Conversation']
+)
+
+router.include_router(
+    message.router,
+    tags=['Message']
 )
 
 router.include_router(

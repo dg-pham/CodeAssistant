@@ -334,16 +334,6 @@ class WorkflowOrchestrator:
         str, Any]:
         """
         Thực thi đồ thị workflow
-
-        Args:
-            graph: Đồ thị workflow
-            current_nodes: Danh sách ID của các node cần thực thi
-            data: Dữ liệu đầu vào
-            execution_id: ID của lần thực thi
-            workflow_service: Service để thao tác với database
-
-        Returns:
-            Kết quả thực thi
         """
         result = {}
 
@@ -374,12 +364,19 @@ class WorkflowOrchestrator:
                 # Thực thi node
                 node_result = await self._execute_node(node, data)
 
+                # Thêm log để debug
+                logger.info(f"Node {node.name} execution result: {node_result}")
+
                 # Cập nhật trạng thái của node trong graph
                 graph[node_id]["executed"] = True
                 graph[node_id]["result"] = node_result
 
-                # Cập nhật kết quả chung
+                # QUAN TRỌNG: Kết quả của node này sẽ được chuyển làm đầu vào cho node tiếp theo
                 result.update(node_result)
+
+                # Đây là điểm cần sửa: Gán lại data cho các node tiếp theo để chúng nhận được output của node này
+                updated_data = data.copy()  # Copy data hiện tại
+                updated_data.update(node_result)  # Thêm kết quả của node này vào
 
                 # Cập nhật step execution
                 workflow_service.update_execution_step(
@@ -389,7 +386,7 @@ class WorkflowOrchestrator:
                     completed_at=datetime.now()
                 )
 
-                # Tìm các node tiếp theo
+                # Tìm các node tiếp theo và truyền dữ liệu được cập nhật
                 for next_node in graph[node_id]["next"]:
                     target_id = next_node["target_id"]
                     edge_type = next_node["edge_type"]
@@ -397,7 +394,8 @@ class WorkflowOrchestrator:
 
                     # Kiểm tra điều kiện (nếu có)
                     if self._check_edge_conditions(conditions, node_result):
-                        next_nodes.append(target_id)
+                        # Lưu node tiếp theo kèm data đã cập nhật
+                        next_nodes.append((target_id, updated_data))
 
             except Exception as e:
                 logger.error(f"Error executing node {node.name}: {str(e)}")
@@ -414,11 +412,16 @@ class WorkflowOrchestrator:
                 # Nếu edge_type là failure, chỉ thực thi node tiếp theo khi có lỗi
                 for next_node in graph[node_id]["next"]:
                     if next_node["edge_type"] == "failure":
-                        next_nodes.append(next_node["target_id"])
+                        next_nodes.append((next_node["target_id"], data))
 
-        # Thực thi đệ quy các node tiếp theo
-        next_result = await self._execute_graph(graph, next_nodes, result, execution_id, workflow_service)
-        result.update(next_result)
+        # Thực thi đệ quy các node tiếp theo với data tương ứng của từng node
+        next_results = {}
+        for target_id, target_data in next_nodes:
+            node_result = await self._execute_graph(graph, [target_id], target_data, execution_id, workflow_service)
+            next_results.update(node_result)
+
+        # Cập nhật kết quả chung với kết quả từ các node tiếp theo
+        result.update(next_results)
 
         return result
 

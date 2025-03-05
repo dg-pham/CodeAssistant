@@ -1,6 +1,6 @@
-from typing import Optional, List
-from datetime import datetime, timezone, timedelta
-from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+from sqlmodel import SQLModel, Field, Relationship, JSON
 
 from backend.db.models.conversation import Conversation
 from backend.utils.helpers import vietnam_now
@@ -14,6 +14,7 @@ class Message(SQLModel, table=True):
     role: str
     content: str
     timestamp: datetime = Field(default_factory=vietnam_now)
+    meta: Optional[Dict[str, Any]] = Field(default=None, sa_type=JSON)  # Thêm trường meta
 
     # Relationships
     conversation: Optional[Conversation] = Relationship(back_populates="messages")

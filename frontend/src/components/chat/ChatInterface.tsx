@@ -1,19 +1,47 @@
+// src/components/chat/ChatInterface.tsx
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Paper, Typography, Divider, CircularProgress, Drawer, useMediaQuery, IconButton, Alert } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Typography,
+  Divider,
+  CircularProgress,
+  Drawer,
+  useMediaQuery,
+  IconButton,
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
+} from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
 import { RootState, useAppDispatch } from '@/store/store';
 import {
-  getConversationWithMessages,
+  getUserConversations,
+  getConversation,  // Thêm dòng này
   createConversation,
-  addLocalMessage
+  addLocalMessage,
+  getConversationWithMessages,
+  getConversationHistory,
+  setCurrentConversation
 } from '@/store/slices/conversationSlice';
+import { useNavigate } from 'react-router-dom';
+import {
+  getUserWorkflows,
+  executeWorkflow,
+  getWorkflowExecution
+} from '@/store/slices/workflowSlice';
 import { processCode } from '@/store/slices/codeSlice';
 import { ConversationList } from '@/components/chat';
 import MessageItem from './MessageItem';
 import ChatInput from './ChatInput';
 import { Message, CodeRequest } from '@/types';
+import { Workflow } from '@/api/workflowService';
+import WorkflowInputDialog from '@/components/workflow/WorkflowInputDialog';
+import api from '@/api/axios-config';
 
 interface ChatInterfaceProps {
   conversationId?: string;
@@ -26,9 +54,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { currentUser } = useSelector((state: RootState) => state.user);
   const { currentConversation, messages, isLoading } = useSelector((state: RootState) => state.conversation);
+  const { workflows } = useSelector((state: RootState) => state.workflow);
   const [drawerOpen, setDrawerOpen] = useState(!isMobile);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
+
+  const navigate = useNavigate();
+
+  // Workflow related states
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('');
+  const [runWorkflowDialogOpen, setRunWorkflowDialogOpen] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
 
   // Load conversation if ID is provided
   useEffect(() => {
@@ -46,12 +83,40 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
     }
   }, [dispatch, conversationId, currentUser]);
 
+  // Load user's workflows
+  useEffect(() => {
+    if (currentUser?.id) {
+      dispatch(getUserWorkflows(currentUser.id));
+    }
+  }, [dispatch, currentUser]);
+
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Function to save message to backend
+  const saveMessageToHistory = async (messageData) => {
+    try {
+      // Sử dụng API để lưu tin nhắn
+      // Đường dẫn API phải được điều chỉnh theo backend của bạn
+      const response = await api.post('/messages', messageData);
+
+      // Sau khi lưu thành công, refresh lại tin nhắn
+      if (currentConversation?.id) {
+        dispatch(getConversationHistory(currentConversation.id));
+      }
+
+      return response.data;
+    } catch (err) {
+      console.error('Failed to save message to history:', err);
+      // Fallback tới hiển thị tin nhắn cục bộ
+      dispatch(addLocalMessage(messageData));
+      return null;
+    }
+  };
 
   const handleSendMessage = async (content: string) => {
     if (!currentUser) {
@@ -76,12 +141,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
         conversationId = newConversation.id;
       }
 
-      // Add message locally for immediate UI update
-      dispatch(addLocalMessage({
+      // Lưu tin nhắn người dùng vào lịch sử
+      const userMessageData = {
         conversation_id: conversationId,
         role: 'user',
         content
-      }));
+      };
+
+      // Thử lưu tin nhắn vào backend
+      await saveMessageToHistory(userMessageData);
+
+      // Hiển thị tin nhắn ngay lập tức (optimistic update)
+      dispatch(addLocalMessage(userMessageData));
 
       // Determine code action type from message content
       let action: CodeRequest['action'] = 'generate';
@@ -146,13 +217,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
 
       const response = await dispatch(processCode(codeRequest)).unwrap();
 
-      // Add the AI's response locally
+      // Add the AI's response to history
       if (response && response.result) {
-        dispatch(addLocalMessage({
+        const assistantMessageData = {
           conversation_id: conversationId,
           role: 'assistant',
           content: response.result
-        }));
+        };
+
+        // Lưu tin nhắn AI vào lịch sử
+        await saveMessageToHistory(assistantMessageData);
+
+        // Hiển thị tin nhắn ngay lập tức
+        dispatch(addLocalMessage(assistantMessageData));
       }
     } catch (err: any) {
       setError(err.message || 'Failed to process message');
@@ -160,6 +237,118 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
       setIsProcessing(false);
     }
   };
+
+  // Handle selecting a workflow
+  const handleSelectWorkflow = (workflowId: string) => {
+    if (!workflowId) return;
+
+    const workflow = workflows.find(w => w.id === workflowId);
+    if (workflow) {
+      setSelectedWorkflow(workflow);
+      setRunWorkflowDialogOpen(true);
+    }
+
+    // Reset select
+    setSelectedWorkflowId('');
+  };
+
+    const handleRunWorkflowWithInput = async (inputData: any) => {
+      if (!selectedWorkflow || !currentUser?.id) return;
+
+      setError(null);
+      setIsProcessing(true);
+
+      try {
+        // Add user message about running the workflow
+        let conversationId = currentConversation?.id;
+        let isNewConversation = false;
+
+        if (!conversationId) {
+          // Tạo conversation mới với tiêu đề là tên workflow
+          isNewConversation = true;
+          const newConversation = await dispatch(createConversation({
+            user_id: currentUser.id,
+            title: `Workflow: ${selectedWorkflow.name}`
+          })).unwrap();
+
+          conversationId = newConversation.id;
+
+          dispatch(setCurrentConversation(newConversation));
+        }
+
+        // Tạo user message với ID conversation đúng
+        const userMessageData = {
+          conversation_id: conversationId,
+          role: 'user',
+          content: `Run workflow "${selectedWorkflow.name}" with input:\n\`\`\`json\n${JSON.stringify(inputData, null, 2)}\n\`\`\``
+        };
+
+        // Lưu tin nhắn người dùng vào lịch sử
+        await saveMessageToHistory(userMessageData);
+
+        // Hiển thị tin nhắn ngay lập tức
+        dispatch(addLocalMessage(userMessageData));
+
+        // Execute the workflow
+        const result = await dispatch(executeWorkflow({
+          workflowId: selectedWorkflow.id,
+          data: {
+            user_id: currentUser.id,
+            input_data: inputData
+          }
+        })).unwrap();
+
+        // Get execution details
+        if (result.execution_id) {
+          const execution = await dispatch(getWorkflowExecution(result.execution_id)).unwrap();
+
+          // Add result to chat history
+          const assistantMessageData = {
+            conversation_id: conversationId,
+            role: 'assistant',
+            content: `Kết quả workflow "${selectedWorkflow.name}":\n\`\`\`json\n${JSON.stringify(execution.output_data, null, 2)}\n\`\`\``,
+            meta: {
+              type: 'workflow_result',
+              executionId: result.execution_id,
+              workflowId: selectedWorkflow.id,
+              workflowName: selectedWorkflow.name
+            }
+          };
+
+          // Lưu tin nhắn vào lịch sử
+          await saveMessageToHistory(assistantMessageData);
+
+          // Hiển thị tin nhắn ngay lập tức
+          dispatch(addLocalMessage(assistantMessageData));
+
+          // Nếu là conversation mới, cập nhật URL để khớp với conversation ID
+          if (isNewConversation) {
+            navigate(`/chat/${conversationId}`);
+          }
+        }
+
+        setRunDialogOpen(false);
+      } catch (err: any) {
+        setError(err.message || 'Failed to execute workflow');
+
+        // Add error message to chat
+        if (conversationId) {
+          const errorMessageData = {
+            conversation_id: currentConversation.id,
+            role: 'system',
+            content: `Lỗi khi thực thi workflow: ${err.message || 'Lỗi không xác định'}`
+          };
+
+          // Lưu tin nhắn lỗi vào lịch sử
+          await saveMessageToHistory(errorMessageData);
+
+          // Hiển thị tin nhắn lỗi ngay lập tức
+          dispatch(addLocalMessage(errorMessageData));
+        }
+      } finally {
+        setIsProcessing(false);
+      }
+    };
 
   const toggleDrawer = () => {
     setDrawerOpen(!drawerOpen);
@@ -253,7 +442,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
           ) : messages.length > 0 ? (
             <>
               {[...messages].reverse().map((message) => (
-                <MessageItem key={message.id} message={message} />
+                <MessageItem key={message.id || `tmp-${message.timestamp}`} message={message} />
               ))}
               <div ref={messagesEndRef} />
             </>
@@ -278,6 +467,41 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
           )}
         </Box>
 
+        {/* Workflow Selector */}
+        <Box sx={{ px: 2, mb: 2 }}>
+          <FormControl size="small" fullWidth>
+            {/* Sửa InputLabel để không bị đè */}
+            <InputLabel
+              id="workflow-select-label"
+              shrink={Boolean(selectedWorkflowId)}
+              sx={{
+                backgroundColor: theme.palette.background.paper,
+                px: 0.5,
+                '&.MuiFormLabel-filled': { transform: 'translate(12px, -9px) scale(0.75)' },
+                zIndex: 1
+              }}
+            >
+              Chọn Workflow để chạy
+            </InputLabel>
+            <Select
+              labelId="workflow-select-label"
+              value={selectedWorkflowId}
+              label="Chọn Workflow để chạy"
+              onChange={(e) => handleSelectWorkflow(e.target.value as string)}
+              displayEmpty
+            >
+              <MenuItem value="" disabled>
+                <em>Chọn workflow</em>
+              </MenuItem>
+              {workflows.map((workflow) => (
+                <MenuItem key={workflow.id} value={workflow.id}>
+                  {workflow.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
         {/* Input Area */}
         <Box sx={{ p: 2, pt: 0 }}>
           <ChatInput
@@ -287,6 +511,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ conversationId }) => {
           />
         </Box>
       </Box>
+
+      {/* Workflow Input Dialog */}
+      <WorkflowInputDialog
+        open={runWorkflowDialogOpen}
+        onClose={() => setRunWorkflowDialogOpen(false)}
+        onSubmit={handleRunWorkflowWithInput}
+        workflow={selectedWorkflow}
+        isLoading={isProcessing}
+      />
     </Box>
   );
 };
